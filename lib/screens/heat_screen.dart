@@ -11,11 +11,13 @@ const Color _border = F1.border;
 const Color _accent = F1.accent;
 const Color _purple = F1.purple;
 const Color _bestStint = F1.teal;
+const Color _gold = F1.gold;
 
 class HeatScreen extends StatefulWidget {
   final String heatId;
+  final bool isRace;
 
-  const HeatScreen({super.key, required this.heatId});
+  const HeatScreen({super.key, required this.heatId, this.isRace = false});
 
   @override
   State<HeatScreen> createState() => _HeatScreenState();
@@ -63,19 +65,21 @@ class _HeatScreenState extends State<HeatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        title: Text(
-          _heatData?.heatName ?? 'Загрузка...',
-          style: const TextStyle(
-              fontWeight: FontWeight.w700, letterSpacing: 0.5, fontSize: 16),
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: _bg,
+        appBar: AppBar(
+          title: Text(
+            _heatData?.heatName ?? 'Загрузка...',
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, letterSpacing: 0.5, fontSize: 16),
+          ),
+          backgroundColor: _panel,
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
-        backgroundColor: _panel,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -97,6 +101,12 @@ class _HeatScreenState extends State<HeatScreen> {
                 _errorMessage!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 14, color: Colors.white70),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Если заезд не синхронизирован — бэкенд подтянет его с сайта.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.white38),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -159,12 +169,12 @@ class _HeatScreenState extends State<HeatScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _accent,
+              color: widget.isRace ? _gold : _accent,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
-              'ЗАЕЗД',
-              style: TextStyle(
+            child: Text(
+              widget.isRace ? 'ГОНКА' : 'ЗАЕЗД',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,

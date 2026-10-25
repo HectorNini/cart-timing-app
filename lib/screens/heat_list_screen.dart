@@ -48,29 +48,31 @@ class _HeatListScreenState extends State<HeatListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: F1.bg,
-      appBar: AppBar(
-        title: const Text(
-          'NARVSKAYA',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            letterSpacing: 2,
-            fontSize: 16,
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: F1.bg,
+        appBar: AppBar(
+          title: const Text(
+            'NARVSKAYA',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2,
+              fontSize: 16,
+            ),
           ),
+          backgroundColor: F1.panel,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            IconButton(
+              onPressed: _fetchHeatList,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Обновить',
+            ),
+          ],
         ),
-        backgroundColor: F1.panel,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _fetchHeatList,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Обновить',
-          ),
-        ],
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -244,7 +246,8 @@ class _HeatListScreenState extends State<HeatListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => HeatScreen(heatId: heat.id),
+            builder: (context) =>
+                HeatScreen(heatId: heat.id, isRace: heat.isRace),
           ),
         );
       },

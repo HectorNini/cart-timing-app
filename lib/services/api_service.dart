@@ -1,22 +1,29 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cart_timing_app/models/heat_list.dart';
 import 'package:http/http.dart' as http;
 import '../models/heat_data.dart';
 
 class ApiService {
-  // Для веб-версии используем localhost, для эмулятора Android - 10.0.2.2
+  // Базовый URL: для эмулятора Android используем 10.0.2.2, для реального телефона
+  // можно переопределить через --dart-define=API_BASE_URL=http://192.168.x.x:8080/api
   static String get baseUrl {
-    if (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1') {
-      return 'http://localhost:8080/api';
+    const override = String.fromEnvironment('API_BASE_URL');
+    if (override.isNotEmpty) return override;
+
+    final host = Uri.base.host;
+    if (host == 'localhost' || host == '127.0.0.1') {
+      return 'http://10.0.2.2:8080/api'; // Android emulator
     }
-    return 'http://localhost:8080/api';
+    // Для веб и прочих можно поменять под нужный IP
+    return 'http://10.0.2.2:8080/api';
   }
 
   Future<HeatData> getHeatData(String heatId) async {
     final url = Uri.parse('$baseUrl/heat/$heatId');
-    
+
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -24,6 +31,8 @@ class ApiService {
       } else {
         throw Exception('Ошибка загрузки: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('Превышено время ожидания. Попробуйте ещё раз.');
     } catch (e) {
       throw Exception('Ошибка подключения: $e');
     }
@@ -32,9 +41,9 @@ class ApiService {
 
   Future<HeatList> getHeatList() async {
     final url = Uri.parse('$baseUrl/heats');
-    
+
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -42,6 +51,8 @@ class ApiService {
       } else {
         throw Exception('Ошибка загрузки: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('Превышено время ожидания. Попробуйте ещё раз.');
     } catch (e) {
       throw Exception('Ошибка подключения: $e');
     }
