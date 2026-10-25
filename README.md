@@ -1,16 +1,76 @@
-# cart_timing_app
+# Cart Timing
 
-A new Flutter project.
+Flutter-приложение для тайминга картодрома
+[timing.batyrshin.name](https://timing.batyrshin.name/tracks/narvskaya/heats)
+в стиле F1: список заездов, полный протокол заезда и **гонки, которые идут прямо сейчас**.
 
-## Getting Started
+## Что умеет
 
-This project is a starting point for a Flutter application.
+* **Список заездов** (последние 100): тип события (ЗАЕЗД/ГОНКА), дата, время,
+  победитель, фильтры и группировка по датам.
+* **Протокол заезда**: позиции, карты, круги, лучшие круги (стинт/заезд),
+  разрывы, история по каждому пилоту.
+* **Live-тайминг**: баннер «LIVE» в списке и отдельный экран с секундомером,
+  позициями в реальном времени, интервалами, стинтами и картами в питлейне.
+  После финиша показывается «Сессия завершена» и переход к обычному протоколу.
 
-A few resources to get you started if this is your first Flutter project:
+## Как это работает
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Приложение общается только с бэкендом (`karting-backend`). Бэкенд сам держит
+WebSocket-подключение к сайту тайминга и определяет, идёт ли сессия сейчас.
+Приложение опрашивает `GET /api/live/current`:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+* каждые **2 с**, пока идёт гонка;
+* каждые **5 с** в тишине;
+* опрос останавливается, когда приложение уходит в фон.
+
+Поэтому отдельный WebSocket в приложении не нужен — меньше расход батареи и
+никаких обрывов соединения на мобильной сети.
+
+## Запуск
+
+```bash
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080/api
+```
+
+`API_BASE_URL` — адрес бэкенда:
+
+* эмулятор Android → `http://10.0.2.2:8080/api`;
+* реальный телефон в той же Wi-Fi → `http://<IP-компьютера>:8080/api`
+  (компьютер и телефон должны быть в одной сети, порт 8080 открыт).
+
+Без `--dart-define` используется `http://10.0.2.2:8080/api`.
+
+Сборка APK:
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=http://192.168.1.10:8080/api
+```
+
+## Структура
+
+```
+lib/
+  main.dart                 — точка входа, тема
+  models/
+    heat_list.dart          — список заездов
+    heat_data.dart          — протокол заезда
+    live_data.dart          — live-снимок, пилоты, круги, стинты
+  services/
+    api_service.dart        — HTTP-клиент бэкенда
+    live_service.dart       — опрос live-состояния (ChangeNotifier)
+  screens/
+    heat_list_screen.dart   — список + live-баннер
+    heat_screen.dart        — протокол заезда
+    live_screen.dart        — экран идущей гонки
+  widgets/
+    live_banner.dart        — баннер «LIVE» в списке
+  theme/
+    f1_theme.dart           — палитра и форматирование времени
+```
+
+## Требования
+
+* Flutter 3.x (Dart 3);
+* запущенный бэкенд `karting-backend` с доступным `/api/live/current`.

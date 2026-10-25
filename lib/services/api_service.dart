@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cart_timing_app/models/heat_list.dart';
 import 'package:http/http.dart' as http;
 import '../models/heat_data.dart';
+import '../models/live_data.dart';
 
 class ApiService {
   // Базовый URL: для эмулятора Android используем 10.0.2.2, для реального телефона
@@ -53,6 +54,26 @@ class ApiService {
       }
     } on TimeoutException {
       throw Exception('Превышено время ожидания. Попробуйте ещё раз.');
+    } catch (e) {
+      throw Exception('Ошибка подключения: $e');
+    }
+  }
+
+  /// Текущая live-сессия: идёт ли гонка прямо сейчас и её последний снимок.
+  Future<LiveSnapshot> getLiveCurrent() async {
+    final url = Uri.parse('$baseUrl/live/current');
+
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
+        return LiveSnapshot.fromJson(jsonData);
+      } else {
+        throw Exception('Ошибка загрузки live: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception('Превышено время ожидания live-тайминга.');
     } catch (e) {
       throw Exception('Ошибка подключения: $e');
     }

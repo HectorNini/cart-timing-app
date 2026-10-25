@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/heat_list.dart';
 import '../services/api_service.dart';
+import '../services/live_service.dart';
 import '../theme/f1_theme.dart';
+import '../widgets/live_banner.dart';
 import 'heat_screen.dart';
 
 class HeatListScreen extends StatefulWidget {
@@ -11,8 +13,10 @@ class HeatListScreen extends StatefulWidget {
   State<HeatListScreen> createState() => _HeatListScreenState();
 }
 
-class _HeatListScreenState extends State<HeatListScreen> {
+class _HeatListScreenState extends State<HeatListScreen>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
+  final LiveService _liveService = LiveService();
   HeatList? _heatList;
   bool _isLoading = true;
   String? _errorMessage;
@@ -21,7 +25,26 @@ class _HeatListScreenState extends State<HeatListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _liveService.start();
     _fetchHeatList();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveService.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // В фоне не тратим батарею и трафик на опрос live-тайминга.
+    if (state == AppLifecycleState.resumed) {
+      _liveService.start();
+    } else if (state == AppLifecycleState.paused) {
+      _liveService.stop();
+    }
   }
 
   Future<void> _fetchHeatList() async {
@@ -77,6 +100,15 @@ class _HeatListScreenState extends State<HeatListScreen> {
   }
 
   Widget _buildBody() {
+    return Column(
+      children: [
+        LiveBanner(liveService: _liveService),
+        Expanded(child: _buildContent()),
+      ],
+    );
+  }
+
+  Widget _buildContent() {
     if (_isLoading && _heatList == null) {
       return const Center(child: CircularProgressIndicator(color: F1.accent));
     }
