@@ -100,6 +100,52 @@ void main() {
     });
   });
 
+  group('bestLapPositions', () {
+    test('ranks by the driver best lap and skips missing data', () {
+      final drivers = [
+        DriverInfo(
+          name: 'Slow',
+          position: 'P1',
+          bestLapMillis: 52000,
+          columnIndex: 0,
+        ),
+        DriverInfo(
+          name: 'Fast',
+          position: 'P5',
+          bestLapMillis: 50000,
+          columnIndex: 1,
+        ),
+        DriverInfo(name: 'No time', position: 'P2', columnIndex: 2),
+        DriverInfo(name: 'No column', bestLapMillis: 49000),
+      ];
+
+      final positions = bestLapPositions(drivers);
+
+      expect(positions, {1: 1, 0: 2});
+    });
+
+    test('breaks equal best laps by actual position', () {
+      final drivers = [
+        DriverInfo(
+          name: 'P5',
+          position: 'P5',
+          bestLapMillis: 50000,
+          columnIndex: 0,
+        ),
+        DriverInfo(
+          name: 'P1',
+          position: 'P1',
+          bestLapMillis: 50000,
+          columnIndex: 1,
+        ),
+      ];
+
+      final positions = bestLapPositions(drivers);
+
+      expect(positions, {1: 1, 0: 2});
+    });
+  });
+
   group('lapTimePositions', () {
     test('ranks each lap by time', () {
       final details = [

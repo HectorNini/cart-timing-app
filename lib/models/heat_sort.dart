@@ -9,6 +9,18 @@ enum HeatSortMode {
   bestLap,
 }
 
+/// Что показывать в ячейках таблицы по кругам.
+enum HeatGridMode {
+  /// Фактическая позиция на трассе в этом круге.
+  position,
+
+  /// Место по времени прохождения этого круга.
+  lapTime,
+
+  /// Место по лучшему кругу пилота за весь заезд.
+  bestLap,
+}
+
 /// Возвращает новый список, не меняя исходный порядок `drivers`.
 List<DriverInfo> sortDrivers(List<DriverInfo> drivers, HeatSortMode mode) {
   final sorted = List<DriverInfo>.from(drivers);
@@ -50,6 +62,25 @@ Map<int, int> lapTimePositions(Iterable<LapDetail> details) {
   final positions = <int, int>{};
   for (var i = 0; i < ranked.length; i++) {
     positions[ranked[i].columnIndex!] = i + 1;
+  }
+  return positions;
+}
+
+/// Места по лучшему кругу пилота за весь заезд.
+///
+/// Возвращает `columnIndex -> место`, начиная с 1. Пилоты без лучшего
+/// времени не участвуют в нумерации.
+Map<int, int> bestLapPositions(Iterable<DriverInfo> drivers) {
+  final ranked = sortDrivers(
+    drivers.where((d) => d.bestLapMillis != null).toList(),
+    HeatSortMode.bestLap,
+  );
+  final positions = <int, int>{};
+  var rank = 0;
+  for (final driver in ranked) {
+    final column = driver.columnIndex;
+    if (column == null) continue;
+    positions[column] = ++rank;
   }
   return positions;
 }

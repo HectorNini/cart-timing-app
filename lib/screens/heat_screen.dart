@@ -31,6 +31,7 @@ class _HeatScreenState extends State<HeatScreen> {
   String? _errorMessage;
   Timer? _timer;
   HeatSortMode _sortMode = HeatSortMode.position;
+  HeatGridMode _gridMode = HeatGridMode.position;
 
   @override
   void initState() {
@@ -341,7 +342,11 @@ class _HeatScreenState extends State<HeatScreen> {
 
   // ---- Per-lap infographic grid ----
   Widget _buildGrid(HeatData heatData) {
-    final drivers = sortDrivers(heatData.drivers, _sortMode);
+    final rowSortMode =
+        _gridMode == HeatGridMode.position
+            ? HeatSortMode.position
+            : HeatSortMode.bestLap;
+    final drivers = sortDrivers(heatData.drivers, rowSortMode);
     final maxLap = heatData.maxRaceLap;
     if (maxLap == 0) {
       return const SizedBox.shrink();
@@ -365,6 +370,8 @@ class _HeatScreenState extends State<HeatScreen> {
       for (final entry in grid.entries)
         entry.key: lapTimePositions(entry.value.values),
     };
+    // Места по лучшему кругу пилота за весь заезд.
+    final bestPositions = bestLapPositions(heatData.drivers);
 
     return Container(
       decoration: BoxDecoration(
@@ -375,15 +382,17 @@ class _HeatScreenState extends State<HeatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionTitle('ПОЗИЦИИ ПО КРУГАМ', trailing: _sortToggle()),
-          if (_sortMode == HeatSortMode.bestLap)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 7, 12, 0),
+          _sectionTitle('ПОЗИЦИИ ПО КРУГАМ', trailing: _gridToggle()),
+          if (_gridMode != HeatGridMode.position)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 7, 12, 0),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'В ячейках — место по времени круга.',
-                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                  _gridMode == HeatGridMode.lapTime
+                      ? 'В ячейках — место по времени этого круга.'
+                      : 'В ячейках — место по лучшему кругу пилота за заезд.',
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ),
             ),
@@ -402,6 +411,7 @@ class _HeatScreenState extends State<HeatScreen> {
                     maxLap,
                     grid,
                     timePositions,
+                    bestPositions,
                   );
                 }),
               ],
@@ -464,6 +474,7 @@ class _HeatScreenState extends State<HeatScreen> {
     int maxLap,
     Map<int, Map<int, LapDetail>> grid,
     Map<int, Map<int, int>> timePositions,
+    Map<int, int> bestPositions,
   ) {
     return Row(
       children: [
@@ -511,14 +522,16 @@ class _HeatScreenState extends State<HeatScreen> {
               detail.stintIndex! > 1 &&
               previousStint != detail.stintIndex;
           final lapPositions = timePositions[raceLap];
-          int? timePosition;
-          if (_sortMode == HeatSortMode.bestLap) {
-            timePosition = lapPositions?[columnIndex];
+          int? positionOverride;
+          if (_gridMode == HeatGridMode.lapTime) {
+            positionOverride = lapPositions?[columnIndex];
+          } else if (_gridMode == HeatGridMode.bestLap) {
+            positionOverride = bestPositions[columnIndex];
           }
           return _gridCell(
             detail,
             stintStart: stintStart,
-            timePosition: timePosition,
+            positionOverride: positionOverride,
           );
         }),
       ],
@@ -528,7 +541,7 @@ class _HeatScreenState extends State<HeatScreen> {
   Widget _gridCell(
     LapDetail? detail, {
     bool stintStart = false,
-    int? timePosition,
+    int? positionOverride,
   }) {
     if (detail == null || detail.lapTime == null) {
       return Container(
@@ -555,7 +568,7 @@ class _HeatScreenState extends State<HeatScreen> {
       'P',
       '',
     );
-    final pos = timePosition?.toString() ?? actualPos;
+    final pos = positionOverride?.toString() ?? actualPos;
     final isOverallBest = detail.bestLapOverall == true;
     final isStintBest = detail.bestLapStint == true;
     final isBest = isOverallBest || isStintBest;
@@ -680,6 +693,41 @@ class _HeatScreenState extends State<HeatScreen> {
   }
 
   Widget _sortToggle() {
+    return _toggleGroup([
+      _toggleOption(
+        label: 'ПОЗИЦИЯ',
+        selected: _sortMode == HeatSortMode.position,
+        onTap: () => setState(() => _sortMode = HeatSortMode.position),
+      ),
+      _toggleOption(
+        label: 'ВРЕМЯ',
+        selected: _sortMode == HeatSortMode.bestLap,
+        onTap: () => setState(() => _sortMode = HeatSortMode.bestLap),
+      ),
+    ]);
+  }
+
+  Widget _gridToggle() {
+    return _toggleGroup([
+      _toggleOption(
+        label: 'ПОЗИЦИЯ',
+        selected: _gridMode == HeatGridMode.position,
+        onTap: () => setState(() => _gridMode = HeatGridMode.position),
+      ),
+      _toggleOption(
+        label: 'КРУГ',
+        selected: _gridMode == HeatGridMode.lapTime,
+        onTap: () => setState(() => _gridMode = HeatGridMode.lapTime),
+      ),
+      _toggleOption(
+        label: 'ЛУЧШЕЕ',
+        selected: _gridMode == HeatGridMode.bestLap,
+        onTap: () => setState(() => _gridMode = HeatGridMode.bestLap),
+      ),
+    ]);
+  }
+
+  Widget _toggleGroup(List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
@@ -687,28 +735,23 @@ class _HeatScreenState extends State<HeatScreen> {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: _border),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sortOption('ПОЗИЦИЯ', HeatSortMode.position),
-          _sortOption('ВРЕМЯ', HeatSortMode.bestLap),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 
-  Widget _sortOption(String label, HeatSortMode mode) {
-    final selected = _sortMode == mode;
-    void select() => setState(() => _sortMode = mode);
-
+  Widget _toggleOption({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
     return Semantics(
       button: true,
       selected: selected,
       label: label,
       excludeSemantics: true,
-      onTap: select,
+      onTap: onTap,
       child: GestureDetector(
-        onTap: select,
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
