@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/heat_data.dart';
+import '../models/heat_sort.dart';
 import '../services/api_service.dart';
 import '../theme/f1_theme.dart';
 
@@ -29,6 +30,7 @@ class _HeatScreenState extends State<HeatScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _timer;
+  HeatSortMode _sortMode = HeatSortMode.position;
 
   @override
   void initState() {
@@ -72,7 +74,10 @@ class _HeatScreenState extends State<HeatScreen> {
           title: Text(
             _heatData?.heatName ?? 'Загрузка...',
             style: const TextStyle(
-                fontWeight: FontWeight.w700, letterSpacing: 0.5, fontSize: 16),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              fontSize: 16,
+            ),
           ),
           backgroundColor: _panel,
           foregroundColor: Colors.white,
@@ -198,7 +203,8 @@ class _HeatScreenState extends State<HeatScreen> {
                 ),
                 if (heatData.raceDate != null || heatData.raceTime != null)
                   Text(
-                    '${heatData.raceDate ?? ''} ${heatData.raceTime ?? ''}'.trim(),
+                    '${heatData.raceDate ?? ''} ${heatData.raceTime ?? ''}'
+                        .trim(),
                     style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
               ],
@@ -233,8 +239,7 @@ class _HeatScreenState extends State<HeatScreen> {
 
   // ---- Current standings (driver list) ----
   Widget _buildStandings(HeatData heatData) {
-    final drivers = List<DriverInfo>.from(heatData.drivers)
-      ..sort((a, b) => a.positionNumber.compareTo(b.positionNumber));
+    final drivers = sortDrivers(heatData.drivers, _sortMode);
 
     int bestOverall = drivers
         .map((d) => d.bestLapMillis ?? 1 << 30)
@@ -248,9 +253,21 @@ class _HeatScreenState extends State<HeatScreen> {
       ),
       child: Column(
         children: [
-          _sectionTitle('ПОЗИЦИИ'),
+          _sectionTitle('ПОЗИЦИИ', trailing: _sortToggle()),
+          if (_sortMode == HeatSortMode.bestLap)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 7, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Порядок — по лучшему кругу. В бейдже — фактическое место.',
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ),
+            ),
           ...drivers.map((d) {
-            final isBest = d.bestLapMillis != null && d.bestLapMillis == bestOverall;
+            final isBest =
+                d.bestLapMillis != null && d.bestLapMillis == bestOverall;
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: const BoxDecoration(
@@ -282,7 +299,9 @@ class _HeatScreenState extends State<HeatScreen> {
                             Text(
                               '${d.totalLaps ?? 0} кр.',
                               style: const TextStyle(
-                                  color: Colors.white38, fontSize: 11),
+                                color: Colors.white38,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -304,9 +323,10 @@ class _HeatScreenState extends State<HeatScreen> {
                       const Text(
                         'ЛУЧШИЙ',
                         style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 9,
-                            letterSpacing: 0.5),
+                          color: Colors.white38,
+                          fontSize: 9,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ],
                   ),
@@ -321,8 +341,7 @@ class _HeatScreenState extends State<HeatScreen> {
 
   // ---- Per-lap infographic grid ----
   Widget _buildGrid(HeatData heatData) {
-    final drivers = List<DriverInfo>.from(heatData.drivers)
-      ..sort((a, b) => a.positionNumber.compareTo(b.positionNumber));
+    final drivers = sortDrivers(heatData.drivers, _sortMode);
     final maxLap = heatData.maxRaceLap;
     if (maxLap == 0) {
       return const SizedBox.shrink();
@@ -361,8 +380,11 @@ class _HeatScreenState extends State<HeatScreen> {
                 // one row per driver
                 ...List.generate(drivers.length, (dIdx) {
                   return _driverRow(
-                      drivers[dIdx].columnIndex ?? dIdx, drivers[dIdx],
-                      maxLap, grid);
+                    drivers[dIdx].columnIndex ?? dIdx,
+                    drivers[dIdx],
+                    maxLap,
+                    grid,
+                  );
                 }),
               ],
             ),
@@ -389,10 +411,11 @@ class _HeatScreenState extends State<HeatScreen> {
           child: const Text(
             'ГОНЩИК',
             style: TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5),
+              color: Colors.white38,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
         ...List.generate(maxLap, (i) {
@@ -406,9 +429,10 @@ class _HeatScreenState extends State<HeatScreen> {
               'К${i + 1}',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600),
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           );
         }),
@@ -416,8 +440,12 @@ class _HeatScreenState extends State<HeatScreen> {
     );
   }
 
-  Widget _driverRow(int columnIndex, DriverInfo driver,
-      int maxLap, Map<int, Map<int, LapDetail>> grid) {
+  Widget _driverRow(
+    int columnIndex,
+    DriverInfo driver,
+    int maxLap,
+    Map<int, Map<int, LapDetail>> grid,
+  ) {
     return Row(
       children: [
         Container(
@@ -458,7 +486,8 @@ class _HeatScreenState extends State<HeatScreen> {
           final previousRow = raceLap > 1 ? grid[raceLap - 1] : null;
           final previousStint =
               previousRow != null ? previousRow[columnIndex]?.stintIndex : null;
-          final stintStart = detail != null &&
+          final stintStart =
+              detail != null &&
               detail.stintIndex != null &&
               detail.stintIndex! > 1 &&
               previousStint != detail.stintIndex;
@@ -476,19 +505,24 @@ class _HeatScreenState extends State<HeatScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: const BorderSide(color: _border, width: 0.6),
-            left: stintStart
-                ? const BorderSide(color: _gold, width: 2)
-                : BorderSide.none,
+            left:
+                stintStart
+                    ? const BorderSide(color: _gold, width: 2)
+                    : BorderSide.none,
           ),
         ),
         alignment: Alignment.center,
-        child: const Text('—',
-            style: TextStyle(color: Colors.white12, fontSize: 12)),
+        child: const Text(
+          '—',
+          style: TextStyle(color: Colors.white12, fontSize: 12),
+        ),
       );
     }
 
-    final pos = (detail.racePosition ?? detail.position ?? '')
-        .replaceAll('P', '');
+    final pos = (detail.racePosition ?? detail.position ?? '').replaceAll(
+      'P',
+      '',
+    );
     final isOverallBest = detail.bestLapOverall == true;
     final isStintBest = detail.bestLapStint == true;
     final isBest = isOverallBest || isStintBest;
@@ -507,9 +541,10 @@ class _HeatScreenState extends State<HeatScreen> {
         color: bg,
         border: Border(
           bottom: const BorderSide(color: _border, width: 0.6),
-          left: stintStart
-              ? const BorderSide(color: _gold, width: 2)
-              : BorderSide.none,
+          left:
+              stintStart
+                  ? const BorderSide(color: _gold, width: 2)
+                  : BorderSide.none,
         ),
       ),
       child: Stack(
@@ -519,8 +554,10 @@ class _HeatScreenState extends State<HeatScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: _posColor(int.tryParse(pos) ?? 99),
                     borderRadius: BorderRadius.circular(3),
@@ -538,9 +575,10 @@ class _HeatScreenState extends State<HeatScreen> {
                 Text(
                   _shortLapTime(detail.lapTime!),
                   style: TextStyle(
-                    color: isBest
-                        ? (isOverallBest ? _purple : _bestStint)
-                        : Colors.white70,
+                    color:
+                        isBest
+                            ? (isOverallBest ? _purple : _bestStint)
+                            : Colors.white70,
                     fontSize: 10,
                     fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -598,27 +636,87 @@ class _HeatScreenState extends State<HeatScreen> {
           ),
         ),
         const SizedBox(width: 5),
-        Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+        ),
       ],
     );
   }
 
-  Widget _sectionTitle(String text) {
+  Widget _sortToggle() {
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sortOption('ПОЗИЦИЯ', HeatSortMode.position),
+          _sortOption('ВРЕМЯ', HeatSortMode.bestLap),
+        ],
+      ),
+    );
+  }
+
+  Widget _sortOption(String label, HeatSortMode mode) {
+    final selected = _sortMode == mode;
+    void select() => setState(() => _sortMode = mode);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      onTap: select,
+      child: GestureDetector(
+        onTap: select,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: selected ? _accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white54,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text, {Widget? trailing}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _border)),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
       ),
     );
   }
@@ -672,8 +770,7 @@ class _HeatScreenState extends State<HeatScreen> {
   /// Строка под именем в шапке строки таблицы.
   static String _driverKartLine(DriverInfo driver) {
     final count = driver.stints.length;
-    final kart =
-        count > 0 ? driver.stints.first.kartNumber : driver.kartNumber;
+    final kart = count > 0 ? driver.stints.first.kartNumber : driver.kartNumber;
     if (kart == null) {
       return count > 1 ? '$count ${_pluralStints(count)}' : 'карт —';
     }
