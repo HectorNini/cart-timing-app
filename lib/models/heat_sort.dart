@@ -66,23 +66,59 @@ Map<int, int> lapTimePositions(Iterable<LapDetail> details) {
   return positions;
 }
 
-/// Места по лучшему кругу пилота за весь заезд.
+/// Места по лучшему кругу нарастающим итогом.
 ///
-/// Возвращает `columnIndex -> место`, начиная с 1. Пилоты без лучшего
-/// времени не участвуют в нумерации.
-Map<int, int> bestLapPositions(Iterable<DriverInfo> drivers) {
-  final ranked = sortDrivers(
-    drivers.where((d) => d.bestLapMillis != null).toList(),
-    HeatSortMode.bestLap,
-  );
-  final positions = <int, int>{};
-  var rank = 0;
-  for (final driver in ranked) {
-    final column = driver.columnIndex;
-    if (column == null) continue;
-    positions[column] = ++rank;
+/// Для каждого круга берётся лучший круг каждого пилота только среди
+/// пройденных кругов. Возвращает `круг -> (columnIndex -> место)`.
+Map<int, Map<int, int>> cumulativeBestLapPositions(
+  Map<int, Map<int, LapDetail>> grid,
+  Iterable<DriverInfo> drivers,
+) {
+  final driverByColumn = <int, DriverInfo>{
+    for (final driver in drivers)
+      if (driver.columnIndex != null) driver.columnIndex!: driver,
+  };
+  final bestByColumn = <int, int>{};
+  final result = <int, Map<int, int>>{};
+  final laps = grid.keys.toList()..sort();
+
+  for (final lap in laps) {
+    final details = grid[lap];
+    if (details == null) continue;
+
+    for (final entry in details.entries) {
+      final time = entry.value.lapTimeMillis;
+      if (time == null) continue;
+      final previous = bestByColumn[entry.key];
+      if (previous == null || time < previous) {
+        bestByColumn[entry.key] = time;
+      }
+    }
+
+    final ranked =
+        bestByColumn.entries.toList()..sort((a, b) {
+          final byTime = a.value.compareTo(b.value);
+          if (byTime != 0) return byTime;
+
+          final byPosition = _driverPosition(
+            driverByColumn[a.key],
+          ).compareTo(_driverPosition(driverByColumn[b.key]));
+          if (byPosition != 0) return byPosition;
+
+          return a.key.compareTo(b.key);
+        });
+
+    final positions = <int, int>{};
+    for (var i = 0; i < ranked.length; i++) {
+      positions[ranked[i].key] = i + 1;
+    }
+    result[lap] = positions;
   }
-  return positions;
+  return result;
+}
+
+int _driverPosition(DriverInfo? driver) {
+  return driver == null ? 1 << 30 : _positionKey(driver);
 }
 
 int _positionKey(DriverInfo driver) {

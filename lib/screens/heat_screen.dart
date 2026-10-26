@@ -370,8 +370,11 @@ class _HeatScreenState extends State<HeatScreen> {
       for (final entry in grid.entries)
         entry.key: lapTimePositions(entry.value.values),
     };
-    // Места по лучшему кругу пилота за весь заезд.
-    final bestPositions = bestLapPositions(heatData.drivers);
+    // Места по лучшему кругу нарастающим итогом: круг -> columnIndex -> место.
+    final bestPositionsByLap = cumulativeBestLapPositions(
+      grid,
+      heatData.drivers,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -391,7 +394,7 @@ class _HeatScreenState extends State<HeatScreen> {
                 child: Text(
                   _gridMode == HeatGridMode.lapTime
                       ? 'В ячейках — место по времени этого круга.'
-                      : 'В ячейках — место по лучшему кругу пилота за заезд.',
+                      : 'В ячейках — место по лучшему кругу с учётом кругов до этого.',
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ),
@@ -411,7 +414,7 @@ class _HeatScreenState extends State<HeatScreen> {
                     maxLap,
                     grid,
                     timePositions,
-                    bestPositions,
+                    bestPositionsByLap,
                   );
                 }),
               ],
@@ -474,7 +477,7 @@ class _HeatScreenState extends State<HeatScreen> {
     int maxLap,
     Map<int, Map<int, LapDetail>> grid,
     Map<int, Map<int, int>> timePositions,
-    Map<int, int> bestPositions,
+    Map<int, Map<int, int>> bestPositionsByLap,
   ) {
     return Row(
       children: [
@@ -526,7 +529,7 @@ class _HeatScreenState extends State<HeatScreen> {
           if (_gridMode == HeatGridMode.lapTime) {
             positionOverride = lapPositions?[columnIndex];
           } else if (_gridMode == HeatGridMode.bestLap) {
-            positionOverride = bestPositions[columnIndex];
+            positionOverride = bestPositionsByLap[raceLap]?[columnIndex];
           }
           return _gridCell(
             detail,

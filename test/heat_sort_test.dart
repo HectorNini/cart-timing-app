@@ -100,49 +100,71 @@ void main() {
     });
   });
 
-  group('bestLapPositions', () {
-    test('ranks by the driver best lap and skips missing data', () {
+  group('cumulativeBestLapPositions', () {
+    test('updates positions as laps accumulate', () {
+      final grid = {
+        1: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 80000),
+          1: LapDetail(columnIndex: 1, lapTimeMillis: 75000),
+        },
+        2: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 70000),
+          1: LapDetail(columnIndex: 1, lapTimeMillis: 85000),
+        },
+        3: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 90000),
+          1: LapDetail(columnIndex: 1, lapTimeMillis: 60000),
+        },
+      };
       final drivers = [
-        DriverInfo(
-          name: 'Slow',
-          position: 'P1',
-          bestLapMillis: 52000,
-          columnIndex: 0,
-        ),
-        DriverInfo(
-          name: 'Fast',
-          position: 'P5',
-          bestLapMillis: 50000,
-          columnIndex: 1,
-        ),
-        DriverInfo(name: 'No time', position: 'P2', columnIndex: 2),
-        DriverInfo(name: 'No column', bestLapMillis: 49000),
+        DriverInfo(name: 'P2', position: 'P2', columnIndex: 0),
+        DriverInfo(name: 'P1', position: 'P1', columnIndex: 1),
       ];
 
-      final positions = bestLapPositions(drivers);
+      final positions = cumulativeBestLapPositions(grid, drivers);
 
-      expect(positions, {1: 1, 0: 2});
+      expect(positions[1], {1: 1, 0: 2});
+      expect(positions[2], {0: 1, 1: 2});
+      expect(positions[3], {1: 1, 0: 2});
     });
 
-    test('breaks equal best laps by actual position', () {
+    test('includes a driver only after their first lap time', () {
+      final grid = {
+        1: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 80000),
+          1: LapDetail(columnIndex: 1),
+        },
+        2: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 85000),
+          1: LapDetail(columnIndex: 1, lapTimeMillis: 70000),
+        },
+      };
       final drivers = [
-        DriverInfo(
-          name: 'P5',
-          position: 'P5',
-          bestLapMillis: 50000,
-          columnIndex: 0,
-        ),
-        DriverInfo(
-          name: 'P1',
-          position: 'P1',
-          bestLapMillis: 50000,
-          columnIndex: 1,
-        ),
+        DriverInfo(name: 'P2', position: 'P2', columnIndex: 0),
+        DriverInfo(name: 'P1', position: 'P1', columnIndex: 1),
       ];
 
-      final positions = bestLapPositions(drivers);
+      final positions = cumulativeBestLapPositions(grid, drivers);
 
-      expect(positions, {1: 1, 0: 2});
+      expect(positions[1], {0: 1});
+      expect(positions[2], {1: 1, 0: 2});
+    });
+
+    test('breaks equal cumulative best laps by actual position', () {
+      final grid = {
+        1: {
+          0: LapDetail(columnIndex: 0, lapTimeMillis: 80000),
+          1: LapDetail(columnIndex: 1, lapTimeMillis: 80000),
+        },
+      };
+      final drivers = [
+        DriverInfo(name: 'P2', position: 'P2', columnIndex: 0),
+        DriverInfo(name: 'P1', position: 'P1', columnIndex: 1),
+      ];
+
+      final positions = cumulativeBestLapPositions(grid, drivers);
+
+      expect(positions[1], {1: 1, 0: 2});
     });
   });
 
