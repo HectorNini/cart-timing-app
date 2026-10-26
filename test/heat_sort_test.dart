@@ -99,4 +99,54 @@ void main() {
       expect(drivers.map((d) => d.name), ['P2', 'P1']);
     });
   });
+
+  group('lapTimePositions', () {
+    test('ranks each lap by time', () {
+      final details = [
+        LapDetail(columnIndex: 0, lapTimeMillis: 81937),
+        LapDetail(columnIndex: 1, lapTimeMillis: 79536),
+        LapDetail(columnIndex: 2, lapTimeMillis: 86590),
+        LapDetail(columnIndex: 3, lapTimeMillis: 91116),
+      ];
+
+      final positions = lapTimePositions(details);
+
+      expect(positions, {1: 1, 0: 2, 2: 3, 3: 4});
+    });
+
+    test('skips details without a lap time or column', () {
+      final details = [
+        LapDetail(columnIndex: 0, lapTimeMillis: 60000),
+        LapDetail(columnIndex: 1),
+        LapDetail(columnIndex: 2, lapTimeMillis: 58000),
+        LapDetail(lapTimeMillis: 50000),
+      ];
+
+      final positions = lapTimePositions(details);
+
+      expect(positions, {2: 1, 0: 2});
+    });
+
+    test('breaks equal times by column index', () {
+      final details = [
+        LapDetail(columnIndex: 1, lapTimeMillis: 60000),
+        LapDetail(columnIndex: 0, lapTimeMillis: 60000),
+      ];
+
+      final positions = lapTimePositions(details);
+
+      expect(positions, {0: 1, 1: 2});
+    });
+
+    test('does not mutate the source order', () {
+      final details = [
+        LapDetail(columnIndex: 1, lapTimeMillis: 60000),
+        LapDetail(columnIndex: 0, lapTimeMillis: 58000),
+      ];
+
+      lapTimePositions(details);
+
+      expect(details.map((d) => d.columnIndex), [1, 0]);
+    });
+  });
 }

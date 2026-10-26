@@ -32,6 +32,28 @@ List<DriverInfo> sortDrivers(List<DriverInfo> drivers, HeatSortMode mode) {
   return sorted;
 }
 
+/// Позиции внутри одного круга по времени прохождения.
+///
+/// Возвращает `columnIndex -> место`, начиная с 1. Круги без времени
+/// не участвуют в нумерации.
+Map<int, int> lapTimePositions(Iterable<LapDetail> details) {
+  final ranked =
+      details
+          .where((d) => d.columnIndex != null && d.lapTimeMillis != null)
+          .toList()
+        ..sort((a, b) {
+          final byTime = a.lapTimeMillis!.compareTo(b.lapTimeMillis!);
+          if (byTime != 0) return byTime;
+          return a.columnIndex!.compareTo(b.columnIndex!);
+        });
+
+  final positions = <int, int>{};
+  for (var i = 0; i < ranked.length; i++) {
+    positions[ranked[i].columnIndex!] = i + 1;
+  }
+  return positions;
+}
+
 int _positionKey(DriverInfo driver) {
   final position = driver.positionNumber;
   return position > 0 ? position : 1 << 30;

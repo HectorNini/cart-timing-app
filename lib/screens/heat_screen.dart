@@ -360,6 +360,12 @@ class _HeatScreenState extends State<HeatScreen> {
       }
     }
 
+    // Места по времени внутри каждого круга: columnIndex -> позиция.
+    final Map<int, Map<int, int>> timePositions = {
+      for (final entry in grid.entries)
+        entry.key: lapTimePositions(entry.value.values),
+    };
+
     return Container(
       decoration: BoxDecoration(
         color: _panel,
@@ -369,7 +375,18 @@ class _HeatScreenState extends State<HeatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionTitle('ПОЗИЦИИ ПО КРУГАМ'),
+          _sectionTitle('ПОЗИЦИИ ПО КРУГАМ', trailing: _sortToggle()),
+          if (_sortMode == HeatSortMode.bestLap)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 7, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'В ячейках — место по времени круга.',
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ),
+            ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Column(
@@ -384,6 +401,7 @@ class _HeatScreenState extends State<HeatScreen> {
                     drivers[dIdx],
                     maxLap,
                     grid,
+                    timePositions,
                   );
                 }),
               ],
@@ -445,6 +463,7 @@ class _HeatScreenState extends State<HeatScreen> {
     DriverInfo driver,
     int maxLap,
     Map<int, Map<int, LapDetail>> grid,
+    Map<int, Map<int, int>> timePositions,
   ) {
     return Row(
       children: [
@@ -491,13 +510,26 @@ class _HeatScreenState extends State<HeatScreen> {
               detail.stintIndex != null &&
               detail.stintIndex! > 1 &&
               previousStint != detail.stintIndex;
-          return _gridCell(detail, stintStart: stintStart);
+          final lapPositions = timePositions[raceLap];
+          int? timePosition;
+          if (_sortMode == HeatSortMode.bestLap) {
+            timePosition = lapPositions?[columnIndex];
+          }
+          return _gridCell(
+            detail,
+            stintStart: stintStart,
+            timePosition: timePosition,
+          );
         }),
       ],
     );
   }
 
-  Widget _gridCell(LapDetail? detail, {bool stintStart = false}) {
+  Widget _gridCell(
+    LapDetail? detail, {
+    bool stintStart = false,
+    int? timePosition,
+  }) {
     if (detail == null || detail.lapTime == null) {
       return Container(
         width: 50,
@@ -519,10 +551,11 @@ class _HeatScreenState extends State<HeatScreen> {
       );
     }
 
-    final pos = (detail.racePosition ?? detail.position ?? '').replaceAll(
+    final actualPos = (detail.racePosition ?? detail.position ?? '').replaceAll(
       'P',
       '',
     );
+    final pos = timePosition?.toString() ?? actualPos;
     final isOverallBest = detail.bestLapOverall == true;
     final isStintBest = detail.bestLapStint == true;
     final isBest = isOverallBest || isStintBest;
@@ -553,25 +586,27 @@ class _HeatScreenState extends State<HeatScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _posColor(int.tryParse(pos) ?? 99),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    'P$pos',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                if (pos.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _posColor(int.tryParse(pos) ?? 99),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'P$pos',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 2),
+                  const SizedBox(height: 2),
+                ],
                 Text(
                   _shortLapTime(detail.lapTime!),
                   style: TextStyle(
