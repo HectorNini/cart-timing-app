@@ -276,8 +276,8 @@ class _HeatScreenState extends State<HeatScreen> {
                         const SizedBox(height: 1),
                         Row(
                           children: [
-                            if (d.kartNumber != null)
-                              _kartChip(d.kartNumber!),
+                            if (d.kartNumber != null || d.stints.isNotEmpty)
+                              _kartChip(_kartSequence(d)),
                             const SizedBox(width: 8),
                             Text(
                               '${d.totalLaps ?? 0} кр.',
@@ -361,7 +361,7 @@ class _HeatScreenState extends State<HeatScreen> {
                 // one row per driver
                 ...List.generate(drivers.length, (dIdx) {
                   return _driverRow(
-                      dIdx, drivers[dIdx].columnIndex ?? dIdx, drivers[dIdx],
+                      drivers[dIdx].columnIndex ?? dIdx, drivers[dIdx],
                       maxLap, grid);
                 }),
               ],
@@ -378,7 +378,7 @@ class _HeatScreenState extends State<HeatScreen> {
     return Row(
       children: [
         Container(
-          width: 108,
+          width: 120,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(
             border: Border(
@@ -416,12 +416,12 @@ class _HeatScreenState extends State<HeatScreen> {
     );
   }
 
-  Widget _driverRow(int displayIdx, int columnIndex, DriverInfo driver,
+  Widget _driverRow(int columnIndex, DriverInfo driver,
       int maxLap, Map<int, Map<int, LapDetail>> grid) {
     return Row(
       children: [
         Container(
-          width: 108,
+          width: 120,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(
             border: Border(
@@ -441,9 +441,11 @@ class _HeatScreenState extends State<HeatScreen> {
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
-              if (driver.kartNumber != null)
+              if (driver.kartNumber != null || driver.stints.isNotEmpty)
                 Text(
-                  'карт ${driver.kartNumber}',
+                  _driverKartLine(driver),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
             ],
@@ -452,19 +454,32 @@ class _HeatScreenState extends State<HeatScreen> {
         ...List.generate(maxLap, (lapIdx) {
           final raceLap = lapIdx + 1;
           final detail = grid[raceLap]?[columnIndex];
-          return _gridCell(detail);
+          // Первый круг на новом карте: стинт сменился относительно прошлого круга.
+          final previousRow = raceLap > 1 ? grid[raceLap - 1] : null;
+          final previousStint =
+              previousRow != null ? previousRow[columnIndex]?.stintIndex : null;
+          final stintStart = detail != null &&
+              detail.stintIndex != null &&
+              detail.stintIndex! > 1 &&
+              previousStint != detail.stintIndex;
+          return _gridCell(detail, stintStart: stintStart);
         }),
       ],
     );
   }
 
-  Widget _gridCell(LapDetail? detail) {
+  Widget _gridCell(LapDetail? detail, {bool stintStart = false}) {
     if (detail == null || detail.lapTime == null) {
       return Container(
         width: 50,
         height: 46,
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: _border, width: 0.6)),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: const BorderSide(color: _border, width: 0.6),
+            left: stintStart
+                ? const BorderSide(color: _gold, width: 2)
+                : BorderSide.none,
+          ),
         ),
         alignment: Alignment.center,
         child: const Text('—',
@@ -490,37 +505,66 @@ class _HeatScreenState extends State<HeatScreen> {
       height: 46,
       decoration: BoxDecoration(
         color: bg,
-        border: const Border(bottom: BorderSide(color: _border, width: 0.6)),
+        border: Border(
+          bottom: const BorderSide(color: _border, width: 0.6),
+          left: stintStart
+              ? const BorderSide(color: _gold, width: 2)
+              : BorderSide.none,
+        ),
       ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: _posColor(int.tryParse(pos) ?? 99),
-              borderRadius: BorderRadius.circular(3),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: _posColor(int.tryParse(pos) ?? 99),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    'P$pos',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _shortLapTime(detail.lapTime!),
+                  style: TextStyle(
+                    color: isBest
+                        ? (isOverallBest ? _purple : _bestStint)
+                        : Colors.white70,
+                    fontSize: 10,
+                    fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              'P$pos',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+          ),
+          // Номер карта — в углу каждой ячейки, чтобы не занимать место у времени.
+          if (detail.kartNumber != null)
+            Positioned(
+              top: 1,
+              right: 3,
+              child: Text(
+                '${detail.kartNumber}',
+                style: TextStyle(
+                  color: stintStart ? _gold : Colors.white30,
+                  fontSize: 8,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            _shortLapTime(detail.lapTime!),
-            style: TextStyle(
-              color: isBest ? (isOverallBest ? _purple : _bestStint) : Colors.white70,
-              fontSize: 10,
-              fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
         ],
       ),
     );
@@ -535,7 +579,7 @@ class _HeatScreenState extends State<HeatScreen> {
         children: [
           _legendDot(_purple, 'Лучший круг заезда'),
           _legendDot(_bestStint, 'Лучший круг стинта'),
-          _legendDot(const Color(0xFF4A4A4A), 'Смена карта'),
+          _legendDot(_gold, 'Первый круг на новом карте'),
         ],
       ),
     );
@@ -599,7 +643,7 @@ class _HeatScreenState extends State<HeatScreen> {
     );
   }
 
-  Widget _kartChip(int kart) {
+  Widget _kartChip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
@@ -608,10 +652,45 @@ class _HeatScreenState extends State<HeatScreen> {
         border: Border.all(color: _border),
       ),
       child: Text(
-        'карт $kart',
+        label,
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
     );
+  }
+
+  /// «карт 9» для одного стинта или «9 → 101 → 6» при сменах карта.
+  static String _kartSequence(DriverInfo driver) {
+    final stints = driver.stints;
+    if (stints.length > 1) {
+      return stints.map((s) => s.kartNumber?.toString() ?? '?').join(' → ');
+    }
+    final kart =
+        stints.isNotEmpty ? stints.first.kartNumber : driver.kartNumber;
+    return kart != null ? 'карт $kart' : 'карт —';
+  }
+
+  /// Строка под именем в шапке строки таблицы.
+  static String _driverKartLine(DriverInfo driver) {
+    final count = driver.stints.length;
+    final kart =
+        count > 0 ? driver.stints.first.kartNumber : driver.kartNumber;
+    if (kart == null) {
+      return count > 1 ? '$count ${_pluralStints(count)}' : 'карт —';
+    }
+    if (count > 1) {
+      return 'карт $kart · $count ${_pluralStints(count)}';
+    }
+    return 'карт $kart';
+  }
+
+  static String _pluralStints(int count) {
+    final mod10 = count % 10;
+    final mod100 = count % 100;
+    if (mod10 == 1 && mod100 != 11) return 'стинт';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return 'стинта';
+    }
+    return 'стинтов';
   }
 
   static Color _posColor(int pos) => F1.positionColor(pos);

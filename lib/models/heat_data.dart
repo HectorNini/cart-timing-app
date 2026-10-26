@@ -1,3 +1,38 @@
+class StintInfo {
+  final int? number;
+  final int? kartNumber;
+  final int? lapFrom;
+  final int? lapTo;
+  final int? lapsCount;
+  final int? bestLapMillis;
+  final int? avgLapMillis;
+  final int? devMillis;
+
+  StintInfo({
+    this.number,
+    this.kartNumber,
+    this.lapFrom,
+    this.lapTo,
+    this.lapsCount,
+    this.bestLapMillis,
+    this.avgLapMillis,
+    this.devMillis,
+  });
+
+  factory StintInfo.fromJson(Map<String, dynamic> json) {
+    return StintInfo(
+      number: json['number'] as int?,
+      kartNumber: json['kartNumber'] as int?,
+      lapFrom: json['lapFrom'] as int?,
+      lapTo: json['lapTo'] as int?,
+      lapsCount: json['lapsCount'] as int?,
+      bestLapMillis: json['bestLapMillis'] as int?,
+      avgLapMillis: json['avgLapMillis'] as int?,
+      devMillis: json['devMillis'] as int?,
+    );
+  }
+}
+
 class DriverInfo {
   final String? siteId;
   final String? name;
@@ -10,6 +45,7 @@ class DriverInfo {
   final int? bestLapMillis;
   final int? totalLaps;
   final int? columnIndex;
+  final List<StintInfo> stints;
 
   DriverInfo({
     this.siteId,
@@ -23,6 +59,7 @@ class DriverInfo {
     this.bestLapMillis,
     this.totalLaps,
     this.columnIndex,
+    this.stints = const [],
   });
 
   factory DriverInfo.fromJson(Map<String, dynamic> json) {
@@ -38,6 +75,11 @@ class DriverInfo {
       bestLapMillis: json['bestLapMillis'] as int?,
       totalLaps: json['totalLaps'] as int?,
       columnIndex: json['columnIndex'] as int?,
+      stints: json['stints'] != null
+          ? (json['stints'] as List)
+              .map((s) => StintInfo.fromJson(s as Map<String, dynamic>))
+              .toList()
+          : const [],
     );
   }
 
