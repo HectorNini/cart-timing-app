@@ -3,6 +3,16 @@ import 'package:cart_timing_app/models/heat_sort.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('defaultHeatSortMode', () {
+    test('uses position for races', () {
+      expect(defaultHeatSortMode(isRace: true), HeatSortMode.position);
+    });
+
+    test('uses best lap for heats', () {
+      expect(defaultHeatSortMode(isRace: false), HeatSortMode.bestLap);
+    });
+  });
+
   group('sortDrivers', () {
     test('position mode keeps the actual race position', () {
       final drivers = [

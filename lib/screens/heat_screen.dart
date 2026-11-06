@@ -30,12 +30,14 @@ class _HeatScreenState extends State<HeatScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _timer;
-  HeatSortMode _sortMode = HeatSortMode.position;
+  late HeatSortMode _sortMode;
   HeatGridMode _gridMode = HeatGridMode.position;
 
   @override
   void initState() {
     super.initState();
+    // В гонках важен фактический порядок, в заездах — лучшее время.
+    _sortMode = defaultHeatSortMode(isRace: widget.isRace);
     _fetchData();
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _fetchData();
@@ -342,11 +344,9 @@ class _HeatScreenState extends State<HeatScreen> {
 
   // ---- Per-lap infographic grid ----
   Widget _buildGrid(HeatData heatData) {
-    final rowSortMode =
-        _gridMode == HeatGridMode.position
-            ? HeatSortMode.position
-            : HeatSortMode.bestLap;
-    final drivers = sortDrivers(heatData.drivers, rowSortMode);
+    // Порядок строк не зависит от вкладок таблицы: он общий с блоком
+    // «ПОЗИЦИИ» и меняется только его переключателем.
+    final drivers = sortDrivers(heatData.drivers, _sortMode);
     final maxLap = heatData.maxRaceLap;
     if (maxLap == 0) {
       return const SizedBox.shrink();

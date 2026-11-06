@@ -21,6 +21,11 @@ enum HeatGridMode {
   bestLap,
 }
 
+/// Порядок по умолчанию: в гонках — позиция, в заездах — лучшее время.
+HeatSortMode defaultHeatSortMode({required bool isRace}) {
+  return isRace ? HeatSortMode.position : HeatSortMode.bestLap;
+}
+
 /// Возвращает новый список, не меняя исходный порядок `drivers`.
 List<DriverInfo> sortDrivers(List<DriverInfo> drivers, HeatSortMode mode) {
   final sorted = List<DriverInfo>.from(drivers);
