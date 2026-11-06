@@ -42,9 +42,23 @@ class LiveSnapshot {
   bool get hasHeat => heat != null;
 
   /// Сколько секунд прошло с последнего сообщения сайта (с учётом времени после ответа).
-  int? get ageNowMs {
+  int? get ageNowMs => ageNowMsAt(DateTime.now());
+
+  int? ageNowMsAt(DateTime now) {
     if (ageMs == null) return null;
-    return ageMs! + DateTime.now().difference(fetchedAt).inMilliseconds;
+    final afterFetch = now.difference(fetchedAt).inMilliseconds;
+    return ageMs! + (afterFetch < 0 ? 0 : afterFetch);
+  }
+
+  /// Текущее время live-заезда.
+  ///
+  /// `heat.elapsed` зафиксирован на моменте последнего сообщения сайта
+  /// (`lastUpdateAt`), поэтому прибавляем возраст снимка `ageMs`, а не время
+  /// с `fetchedAt`. Иначе на каждом опросе таймер откатывался бы назад.
+  int elapsedNow(LiveHeat heat, {DateTime? now}) {
+    if (!live) return heat.elapsed;
+    final age = ageNowMsAt(now ?? DateTime.now());
+    return age == null ? heat.elapsed : heat.elapsed + age;
   }
 }
 

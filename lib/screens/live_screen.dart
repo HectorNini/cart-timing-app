@@ -807,11 +807,8 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
   // Вспомогательные
   // ------------------------------------------------------------------
 
-  int _displayElapsed(LiveSnapshot snapshot, LiveHeat heat) {
-    if (!snapshot.live) return heat.elapsed;
-    final drift = DateTime.now().difference(snapshot.fetchedAt).inMilliseconds;
-    return heat.elapsed + (drift < 0 ? 0 : drift);
-  }
+  int _displayElapsed(LiveSnapshot snapshot, LiveHeat heat) =>
+      snapshot.elapsedNow(heat);
 
   String _updatedLabel(LiveSnapshot snapshot) {
     final age = snapshot.ageNowMs;

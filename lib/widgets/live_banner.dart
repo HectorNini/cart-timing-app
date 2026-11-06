@@ -162,11 +162,8 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
     );
   }
 
-  int _elapsed(LiveSnapshot snapshot, LiveHeat heat) {
-    if (!snapshot.live) return heat.elapsed;
-    final drift = DateTime.now().difference(snapshot.fetchedAt).inMilliseconds;
-    return heat.elapsed + (drift < 0 ? 0 : drift);
-  }
+  int _elapsed(LiveSnapshot snapshot, LiveHeat heat) =>
+      snapshot.elapsedNow(heat);
 
   static String _formatClock(int ms) {
     final totalSeconds = ms ~/ 1000;
