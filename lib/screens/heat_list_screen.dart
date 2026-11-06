@@ -21,11 +21,14 @@ class _HeatListScreenState extends State<HeatListScreen>
   bool _isLoading = true;
   String? _errorMessage;
   String _filter = 'ALL'; // ALL | HEAT | RACE
+  /// id заезда, который идёт прямо сейчас; его скрываем из общего списка.
+  String? _liveHeatId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _liveService.addListener(_onLiveChanged);
     _liveService.start();
     _fetchHeatList();
   }
@@ -33,8 +36,33 @@ class _HeatListScreenState extends State<HeatListScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _liveService.removeListener(_onLiveChanged);
     _liveService.dispose();
     super.dispose();
+  }
+
+  void _onLiveChanged() {
+    if (!mounted) return;
+    final snapshot = _liveService.snapshot;
+    final candidate = snapshot?.heat?.heatId;
+    final liveId = snapshot?.live == true && candidate != null && candidate.isNotEmpty
+        ? candidate
+        : null;
+    if (liveId == _liveHeatId) return;
+
+    final wasLive = _liveHeatId != null;
+    setState(() => _liveHeatId = liveId);
+
+    // Заезд закончился — подтягиваем список, чтобы он появился в нём.
+    if (wasLive && liveId == null) {
+      _fetchHeatList();
+    }
+  }
+
+  List<HeatItem> get _visibleHeats {
+    final heats = _heatList?.heats ?? const <HeatItem>[];
+    if (_liveHeatId == null) return heats;
+    return heats.where((heat) => heat.id != _liveHeatId).toList();
   }
 
   @override
@@ -142,7 +170,7 @@ class _HeatListScreenState extends State<HeatListScreen>
       );
     }
 
-    if (_heatList == null || _heatList!.heats.isEmpty) {
+    if (_heatList == null || _visibleHeats.isEmpty) {
       return const Center(
         child: Text('Нет доступных заездов',
             style: TextStyle(color: Colors.white70)),
@@ -165,7 +193,7 @@ class _HeatListScreenState extends State<HeatListScreen>
   }
 
   Widget _buildFilterBar() {
-    final heats = _heatList!.heats;
+    final heats = _visibleHeats;
     final heatCount = heats.where((h) => !h.isRace).length;
     final raceCount = heats.where((h) => h.isRace).length;
 
@@ -223,7 +251,7 @@ class _HeatListScreenState extends State<HeatListScreen>
   }
 
   Widget _buildList() {
-    final filtered = _heatList!.heats.where((h) {
+    final filtered = _visibleHeats.where((h) {
       if (_filter == 'ALL') return true;
       return h.type == _filter;
     }).toList();
