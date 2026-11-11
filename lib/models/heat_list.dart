@@ -5,6 +5,8 @@ class HeatItem {
   final String time;
   final String topResult;
   final String type; // HEAT | RACE
+  /// Есть ли подробные данные заезда в локальной БД backend'а.
+  final bool synced;
 
   HeatItem({
     required this.id,
@@ -13,6 +15,7 @@ class HeatItem {
     required this.time,
     required this.topResult,
     this.type = 'HEAT',
+    this.synced = true,
   });
 
   bool get isRace => type == 'RACE';
@@ -25,6 +28,7 @@ class HeatItem {
       time: json['time'] as String? ?? '',
       topResult: json['topResult'] as String? ?? '',
       type: json['type'] as String? ?? 'HEAT',
+      synced: json['synced'] as bool? ?? true,
     );
   }
 }

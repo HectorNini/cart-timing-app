@@ -366,12 +366,46 @@ class _HeatListScreenState extends State<HeatListScreen>
                           fontSize: 12,
                         ),
                       ),
+                      if (!heat.synced) ...[
+                        const SizedBox(width: 8),
+                        _syncBadge(),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
             const Icon(Icons.chevron_right, color: Colors.white24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _syncBadge() {
+    return Tooltip(
+      message: 'Заезд ещё не загружен в локальный кэш. '
+          'Откроется с сайта тайминга при нажатии.',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: F1.gold.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 10, color: F1.gold),
+            const SizedBox(width: 3),
+            Text(
+              'НЕ СИНХР.',
+              style: TextStyle(
+                color: F1.gold,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
           ],
         ),
       ),
