@@ -45,9 +45,10 @@ class _HeatListScreenState extends State<HeatListScreen>
     if (!mounted) return;
     final snapshot = _liveService.snapshot;
     final candidate = snapshot?.heat?.heatId;
-    final liveId = snapshot?.live == true && candidate != null && candidate.isNotEmpty
-        ? candidate
-        : null;
+    final liveId =
+        snapshot?.live == true && candidate != null && candidate.isNotEmpty
+            ? candidate
+            : null;
     if (liveId == _liveHeatId) return;
 
     final wasLive = _liveHeatId != null;
@@ -70,16 +71,20 @@ class _HeatListScreenState extends State<HeatListScreen>
     // В фоне не тратим батарею и трафик на опрос live-тайминга.
     if (state == AppLifecycleState.resumed) {
       _liveService.start();
+      // Фон мог синхронизировать заезды, пока приложение было свёрнуто.
+      _fetchHeatList(silent: true);
     } else if (state == AppLifecycleState.paused) {
       _liveService.stop();
     }
   }
 
-  Future<void> _fetchHeatList() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _fetchHeatList({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final data = await _apiService.getHeatList();
@@ -87,13 +92,17 @@ class _HeatListScreenState extends State<HeatListScreen>
       setState(() {
         _heatList = data;
         _isLoading = false;
+        _errorMessage = null;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
+      // Тихое обновление не должно затирать уже показанный список ошибкой.
+      if (!silent) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString();
+        });
+      }
     }
   }
 
@@ -172,8 +181,10 @@ class _HeatListScreenState extends State<HeatListScreen>
 
     if (_heatList == null || _visibleHeats.isEmpty) {
       return const Center(
-        child: Text('Нет доступных заездов',
-            style: TextStyle(color: Colors.white70)),
+        child: Text(
+          'Нет доступных заездов',
+          style: TextStyle(color: Colors.white70),
+        ),
       );
     }
 
@@ -251,18 +262,17 @@ class _HeatListScreenState extends State<HeatListScreen>
   }
 
   Widget _buildList() {
-    final filtered = _visibleHeats.where((h) {
-      if (_filter == 'ALL') return true;
-      return h.type == _filter;
-    }).toList();
+    final filtered =
+        _visibleHeats.where((h) {
+          if (_filter == 'ALL') return true;
+          return h.type == _filter;
+        }).toList();
 
     if (filtered.isEmpty) {
       return ListView(
         children: const [
           SizedBox(height: 120),
-          Center(
-            child: Text('Пусто', style: TextStyle(color: Colors.white54)),
-          ),
+          Center(child: Text('Пусто', style: TextStyle(color: Colors.white54))),
         ],
       );
     }
@@ -302,14 +312,18 @@ class _HeatListScreenState extends State<HeatListScreen>
   Widget _heatTile(HeatItem heat) {
     final isRace = heat.isRace;
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                HeatScreen(heatId: heat.id, isRace: heat.isRace),
+            builder:
+                (context) => HeatScreen(heatId: heat.id, isRace: heat.isRace),
           ),
         );
+        if (!mounted) return;
+        // Заезд при открытии мог подтянуться с сайта и попасть в БД.
+        // Обновляем список, чтобы снять с него отметку «НЕ СИНХР.».
+        _fetchHeatList(silent: true);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -326,13 +340,12 @@ class _HeatListScreenState extends State<HeatListScreen>
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: isRace
-                    ? F1.gold.withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.05),
+                color:
+                    isRace
+                        ? F1.gold.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isRace ? F1.gold : F1.border,
-                ),
+                border: Border.all(color: isRace ? F1.gold : F1.border),
               ),
               child: Icon(
                 isRace ? Icons.emoji_events : Icons.timer_outlined,
@@ -384,7 +397,8 @@ class _HeatListScreenState extends State<HeatListScreen>
 
   Widget _syncBadge() {
     return Tooltip(
-      message: 'Заезд ещё не загружен в локальный кэш. '
+      message:
+          'Заезд ещё не загружен в локальный кэш. '
           'Откроется с сайта тайминга при нажатии.',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -416,9 +430,10 @@ class _HeatListScreenState extends State<HeatListScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
-        color: isRace
-            ? F1.gold.withValues(alpha: 0.2)
-            : F1.accent.withValues(alpha: 0.2),
+        color:
+            isRace
+                ? F1.gold.withValues(alpha: 0.2)
+                : F1.accent.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
