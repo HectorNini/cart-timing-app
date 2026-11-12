@@ -31,13 +31,15 @@ class _HeatScreenState extends State<HeatScreen> {
   String? _errorMessage;
   Timer? _timer;
   late HeatSortMode _sortMode;
-  HeatGridMode _gridMode = HeatGridMode.position;
+  late HeatGridMode _gridMode;
 
   @override
   void initState() {
     super.initState();
     // В гонках важен фактический порядок, в заездах — лучшее время.
     _sortMode = defaultHeatSortMode(isRace: widget.isRace);
+    // В заездах позиция по кругам не вычисляется: показываем место по времени.
+    _gridMode = widget.isRace ? HeatGridMode.position : HeatGridMode.lapTime;
     _fetchData();
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _fetchData();
@@ -697,11 +699,13 @@ class _HeatScreenState extends State<HeatScreen> {
 
   Widget _sortToggle() {
     return _toggleGroup([
-      _toggleOption(
-        label: 'ПОЗИЦИЯ',
-        selected: _sortMode == HeatSortMode.position,
-        onTap: () => setState(() => _sortMode = HeatSortMode.position),
-      ),
+      // В заездах фактическую позицию не считаем — только время.
+      if (widget.isRace)
+        _toggleOption(
+          label: 'ПОЗИЦИЯ',
+          selected: _sortMode == HeatSortMode.position,
+          onTap: () => setState(() => _sortMode = HeatSortMode.position),
+        ),
       _toggleOption(
         label: 'ВРЕМЯ',
         selected: _sortMode == HeatSortMode.bestLap,
@@ -712,11 +716,13 @@ class _HeatScreenState extends State<HeatScreen> {
 
   Widget _gridToggle() {
     return _toggleGroup([
-      _toggleOption(
-        label: 'ПОЗИЦИЯ',
-        selected: _gridMode == HeatGridMode.position,
-        onTap: () => setState(() => _gridMode = HeatGridMode.position),
-      ),
+      // В заездах позиция по кругам не вычисляется: оставляем только время.
+      if (widget.isRace)
+        _toggleOption(
+          label: 'ПОЗИЦИЯ',
+          selected: _gridMode == HeatGridMode.position,
+          onTap: () => setState(() => _gridMode = HeatGridMode.position),
+        ),
       _toggleOption(
         label: 'КРУГ',
         selected: _gridMode == HeatGridMode.lapTime,
