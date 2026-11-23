@@ -10,13 +10,21 @@ import 'api_service.dart';
 /// Бэкенд сам постоянно подключён к WebSocket сайта, поэтому приложению
 /// достаточно периодически забирать `/api/live/current`: пока гонка идёт —
 /// чаще, когда тишина — реже.
+///
+/// Сервис живёт на уровне приложения. Два независимых переключателя:
+/// * [setEnabled] — экраны выключают опрос, когда он им не нужен
+///   (например, на экране конкретного заезда);
+/// * [setAppActive] — цикл жизни приложения выключает опрос в фоне.
 class LiveService extends ChangeNotifier {
-  static const Duration _liveInterval = Duration(seconds: 2);
-  static const Duration _idleInterval = Duration(seconds: 5);
+  static const Duration liveInterval = Duration(seconds: 2);
+  static const Duration idleInterval = Duration(seconds: 5);
 
   final ApiService _apiService;
 
   LiveService({ApiService? apiService}) : _apiService = apiService ?? ApiService();
+
+  /// Общий клиент для всех экранов: один источник URL и удобная подмена в тестах.
+  ApiService get apiService => _apiService;
 
   LiveSnapshot? _snapshot;
   bool _loading = false;
@@ -24,25 +32,50 @@ class LiveService extends ChangeNotifier {
   Timer? _timer;
   bool _disposed = false;
   bool _started = false;
+  bool _enabled = true;
+  bool _appActive = true;
 
   LiveSnapshot? get snapshot => _snapshot;
   bool get isLoading => _loading;
   String? get error => _error;
   bool get isLive => _snapshot?.live == true;
   LiveHeat? get heat => _snapshot?.heat;
+  bool get enabled => _enabled;
+  bool get appActive => _appActive;
 
+  /// Включить опрос (используется при старте приложения).
   void start() {
-    if (_started || _disposed) return;
-    _started = true;
-    _tick();
+    _enabled = true;
+    _sync();
   }
 
-  void stop() {
-    _started = false;
-    _timer?.cancel();
-    _timer = null;
+  /// Выключить опрос по инициативе экрана.
+  void stop() => setEnabled(false);
+
+  void setEnabled(bool value) {
+    _enabled = value;
+    _sync();
   }
 
+  void setAppActive(bool value) {
+    _appActive = value;
+    _sync();
+  }
+
+  void _sync() {
+    if (_disposed) return;
+    final shouldRun = _enabled && _appActive;
+    if (shouldRun && !_started) {
+      _started = true;
+      unawaited(_tick());
+    } else if (!shouldRun && _started) {
+      _started = false;
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  /// Принудительное обновление: работает и когда периодический опрос выключен.
   Future<void> refresh() async {
     await _fetch();
   }
@@ -52,7 +85,7 @@ class LiveService extends ChangeNotifier {
     await _fetch();
     if (_disposed || !_started) return;
     _timer?.cancel();
-    _timer = Timer(isLive ? _liveInterval : _idleInterval, _tick);
+    _timer = Timer(isLive ? liveInterval : idleInterval, _tick);
   }
 
   Future<void> _fetch() async {

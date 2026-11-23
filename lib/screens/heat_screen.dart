@@ -2,17 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/heat_data.dart';
 import '../models/heat_sort.dart';
-import '../services/api_service.dart';
+import '../services/live_service.dart';
+import '../services/live_service_scope.dart';
 import '../theme/f1_theme.dart';
 
-// Локальные ссылки на общую палитру
-const Color _bg = F1.bg;
-const Color _panel = F1.panel;
-const Color _border = F1.border;
-const Color _accent = F1.accent;
-const Color _purple = F1.purple;
-const Color _bestStint = F1.teal;
-const Color _gold = F1.gold;
 
 class HeatScreen extends StatefulWidget {
   final String heatId;
@@ -24,8 +17,11 @@ class HeatScreen extends StatefulWidget {
   State<HeatScreen> createState() => _HeatScreenState();
 }
 
-class _HeatScreenState extends State<HeatScreen> {
-  final ApiService _apiService = ApiService();
+class _HeatScreenState extends State<HeatScreen> with WidgetsBindingObserver {
+  late final LiveService _liveService;
+  bool _initialized = false;
+  bool _appActive = true;
+  bool _wasLiveEnabled = true;
   HeatData? _heatData;
   bool _isLoading = true;
   String? _errorMessage;
@@ -36,25 +32,56 @@ class _HeatScreenState extends State<HeatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // В гонках важен фактический порядок, в заездах — лучшее время.
     _sortMode = defaultHeatSortMode(isRace: widget.isRace);
     // В заездах позиция по кругам не вычисляется: показываем место по времени.
     _gridMode = widget.isRace ? HeatGridMode.position : HeatGridMode.lapTime;
-    _fetchData();
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _fetchData();
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    _liveService = LiveServiceScope.of(context);
+    // Экран заезда не показывает live-блок — лишний опрос не нужен.
+    _wasLiveEnabled = _liveService.enabled;
+    _liveService.setEnabled(false);
+    unawaited(_fetchData());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    if (_initialized && _wasLiveEnabled) _liveService.setEnabled(true);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncTimer();
+  }
+
+  /// В фоне и после финиша заезда данные больше не меняются — не опрашиваем.
+  void _syncTimer() {
+    final shouldPoll =
+        _appActive && _heatData?.status != HeatData.statusFinished;
+    if (shouldPoll) {
+      _timer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(_fetchData());
+      });
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
   }
 
   Future<void> _fetchData() async {
     try {
-      final data = await _apiService.getHeatData(widget.heatId);
+      final data = await _liveService.apiService.getHeatData(widget.heatId);
       if (!mounted) return;
       setState(() {
         _heatData = data;
@@ -68,13 +95,14 @@ class _HeatScreenState extends State<HeatScreen> {
         _errorMessage = e.toString();
       });
     }
+    if (mounted) _syncTimer();
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: F1.bg,
         appBar: AppBar(
           title: Text(
             _heatData?.heatName ?? 'Загрузка...',
@@ -84,7 +112,7 @@ class _HeatScreenState extends State<HeatScreen> {
               fontSize: 16,
             ),
           ),
-          backgroundColor: _panel,
+          backgroundColor: F1.panel,
           foregroundColor: Colors.white,
           elevation: 0,
         ),
@@ -95,7 +123,7 @@ class _HeatScreenState extends State<HeatScreen> {
 
   Widget _buildBody() {
     if (_isLoading && _heatData == null) {
-      return const Center(child: CircularProgressIndicator(color: _accent));
+      return const Center(child: CircularProgressIndicator(color: F1.accent));
     }
 
     if (_errorMessage != null) {
@@ -105,7 +133,7 @@ class _HeatScreenState extends State<HeatScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: _accent),
+              const Icon(Icons.error_outline, size: 64, color: F1.accent),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
@@ -121,7 +149,7 @@ class _HeatScreenState extends State<HeatScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _accent,
+                  backgroundColor: F1.accent,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: _fetchData,
@@ -147,8 +175,8 @@ class _HeatScreenState extends State<HeatScreen> {
     }
 
     return RefreshIndicator(
-      color: _accent,
-      backgroundColor: _panel,
+      color: F1.accent,
+      backgroundColor: F1.panel,
       onRefresh: _fetchData,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -170,16 +198,16 @@ class _HeatScreenState extends State<HeatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: _panel,
+        color: F1.panel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: widget.isRace ? _gold : _accent,
+              color: widget.isRace ? F1.gold : F1.accent,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -221,7 +249,7 @@ class _HeatScreenState extends State<HeatScreen> {
               Text(
                 '$maxLap',
                 style: const TextStyle(
-                  color: _accent,
+                  color: F1.accent,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -246,15 +274,15 @@ class _HeatScreenState extends State<HeatScreen> {
   Widget _buildStandings(HeatData heatData) {
     final drivers = sortDrivers(heatData.drivers, _sortMode);
 
-    int bestOverall = drivers
+    final int bestOverall = drivers
         .map((d) => d.bestLapMillis ?? 1 << 30)
         .fold(1 << 30, (a, b) => a < b ? a : b);
 
     return Container(
       decoration: BoxDecoration(
-        color: _panel,
+        color: F1.panel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Column(
         children: [
@@ -276,7 +304,7 @@ class _HeatScreenState extends State<HeatScreen> {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: _border, width: 0.6)),
+                border: Border(bottom: BorderSide(color: F1.border, width: 0.6)),
               ),
               child: Row(
                 children: [
@@ -319,7 +347,7 @@ class _HeatScreenState extends State<HeatScreen> {
                       Text(
                         _formatMillis(d.bestLapMillis),
                         style: TextStyle(
-                          color: isBest ? _purple : Colors.white,
+                          color: isBest ? F1.purple : Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
@@ -380,9 +408,9 @@ class _HeatScreenState extends State<HeatScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: _panel,
+        color: F1.panel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -437,8 +465,8 @@ class _HeatScreenState extends State<HeatScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: _border),
-              right: BorderSide(color: _border),
+              bottom: BorderSide(color: F1.border),
+              right: BorderSide(color: F1.border),
             ),
           ),
           child: const Text(
@@ -456,7 +484,7 @@ class _HeatScreenState extends State<HeatScreen> {
             width: 50,
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _border)),
+              border: Border(bottom: BorderSide(color: F1.border)),
             ),
             child: Text(
               'К${i + 1}',
@@ -488,8 +516,8 @@ class _HeatScreenState extends State<HeatScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: _border, width: 0.6),
-              right: BorderSide(color: _border),
+              bottom: BorderSide(color: F1.border, width: 0.6),
+              right: BorderSide(color: F1.border),
             ),
           ),
           child: Column(
@@ -554,10 +582,10 @@ class _HeatScreenState extends State<HeatScreen> {
         height: 46,
         decoration: BoxDecoration(
           border: Border(
-            bottom: const BorderSide(color: _border, width: 0.6),
+            bottom: const BorderSide(color: F1.border, width: 0.6),
             left:
                 stintStart
-                    ? const BorderSide(color: _gold, width: 2)
+                    ? const BorderSide(color: F1.gold, width: 2)
                     : BorderSide.none,
           ),
         ),
@@ -580,9 +608,9 @@ class _HeatScreenState extends State<HeatScreen> {
 
     Color bg = Colors.transparent;
     if (isOverallBest) {
-      bg = _purple.withValues(alpha: 0.18);
+      bg = F1.purple.withValues(alpha: 0.18);
     } else if (isStintBest) {
-      bg = _bestStint.withValues(alpha: 0.15);
+      bg = F1.teal.withValues(alpha: 0.15);
     }
 
     return Container(
@@ -591,10 +619,10 @@ class _HeatScreenState extends State<HeatScreen> {
       decoration: BoxDecoration(
         color: bg,
         border: Border(
-          bottom: const BorderSide(color: _border, width: 0.6),
+          bottom: const BorderSide(color: F1.border, width: 0.6),
           left:
               stintStart
-                  ? const BorderSide(color: _gold, width: 2)
+                  ? const BorderSide(color: F1.gold, width: 2)
                   : BorderSide.none,
         ),
       ),
@@ -630,7 +658,7 @@ class _HeatScreenState extends State<HeatScreen> {
                   style: TextStyle(
                     color:
                         isBest
-                            ? (isOverallBest ? _purple : _bestStint)
+                            ? (isOverallBest ? F1.purple : F1.teal)
                             : Colors.white70,
                     fontSize: 10,
                     fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
@@ -648,7 +676,7 @@ class _HeatScreenState extends State<HeatScreen> {
               child: Text(
                 '${detail.kartNumber}',
                 style: TextStyle(
-                  color: stintStart ? _gold : Colors.white30,
+                  color: stintStart ? F1.gold : Colors.white30,
                   fontSize: 8,
                   height: 1,
                   fontWeight: FontWeight.w600,
@@ -668,9 +696,9 @@ class _HeatScreenState extends State<HeatScreen> {
         spacing: 14,
         runSpacing: 6,
         children: [
-          _legendDot(_purple, 'Лучший круг заезда'),
-          _legendDot(_bestStint, 'Лучший круг стинта'),
-          _legendDot(_gold, 'Первый круг на новом карте'),
+          _legendDot(F1.purple, 'Лучший круг заезда'),
+          _legendDot(F1.teal, 'Лучший круг стинта'),
+          _legendDot(F1.gold, 'Первый круг на новом карте'),
         ],
       ),
     );
@@ -742,7 +770,7 @@ class _HeatScreenState extends State<HeatScreen> {
       decoration: BoxDecoration(
         color: Colors.black26,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
@@ -765,7 +793,7 @@ class _HeatScreenState extends State<HeatScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: selected ? _accent : Colors.transparent,
+            color: selected ? F1.accent : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
@@ -787,7 +815,7 @@ class _HeatScreenState extends State<HeatScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _border)),
+        border: Border(bottom: BorderSide(color: F1.border)),
       ),
       child: Row(
         children: [
@@ -834,7 +862,7 @@ class _HeatScreenState extends State<HeatScreen> {
       decoration: BoxDecoration(
         color: Colors.white10,
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Text(
         label,

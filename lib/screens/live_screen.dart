@@ -4,30 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../models/live_data.dart';
 import '../services/live_service.dart';
+import '../services/live_service_scope.dart';
 import '../theme/f1_theme.dart';
 import 'heat_screen.dart';
 
-const Color _bg = F1.bg;
-const Color _panel = F1.panel;
-const Color _panelAlt = F1.panelAlt;
-const Color _border = F1.border;
-const Color _accent = F1.accent;
-const Color _purple = F1.purple;
-const Color _teal = F1.teal;
-const Color _gold = F1.gold;
-
 /// Экран гонки, которая идёт прямо сейчас.
 class LiveScreen extends StatefulWidget {
-  final LiveService liveService;
-
-  const LiveScreen({super.key, required this.liveService});
+  const LiveScreen({super.key});
 
   @override
   State<LiveScreen> createState() => _LiveScreenState();
 }
 
-class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateMixin {
+class _LiveScreenState extends State<LiveScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  late final LiveService _service;
+  bool _initialized = false;
   Timer? _ticker;
 
   @override
@@ -37,14 +30,15 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+  }
 
-    // Перерисовываем секундомер и «обновлено N с назад» каждую секунду.
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-
-    widget.liveService.start();
-    widget.liveService.refresh();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    _service = LiveServiceScope.of(context);
+    unawaited(_service.refresh());
   }
 
   @override
@@ -72,7 +66,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: F1.bg,
         appBar: AppBar(
           title: const Text(
             'LIVE',
@@ -82,19 +76,19 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
               fontSize: 15,
             ),
           ),
-          backgroundColor: _panel,
+          backgroundColor: F1.panel,
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
             IconButton(
-              onPressed: () => widget.liveService.refresh(),
+              onPressed: () => unawaited(_service.refresh()),
               icon: const Icon(Icons.refresh),
               tooltip: 'Обновить',
             ),
           ],
         ),
         body: ListenableBuilder(
-          listenable: widget.liveService,
+          listenable: _service,
           builder: (context, _) => _buildBody(),
         ),
       ),
@@ -102,13 +96,13 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildBody() {
-    final service = widget.liveService;
+    final service = _service;
     final snapshot = service.snapshot;
     final heat = snapshot?.heat;
     _syncActivity(snapshot?.live == true && heat?.drivers.isNotEmpty == true);
 
     if (snapshot == null && service.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: _accent));
+      return const Center(child: CircularProgressIndicator(color: F1.accent));
     }
 
     if (snapshot == null) {
@@ -116,7 +110,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
         icon: Icons.wifi_off,
         title: 'Нет связи с live-таймингом',
         subtitle: service.error ?? 'Проверьте подключение к бэкенду.',
-        onRetry: () => service.refresh(),
+        onRetry: () => unawaited(service.refresh()),
       );
     }
 
@@ -125,14 +119,16 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
         icon: Icons.sports_motorsports_outlined,
         title: 'Сейчас никто не едет',
         subtitle: 'Как только на трассе начнётся заезд, он появится здесь автоматически.',
-        onRetry: () => service.refresh(),
+        onRetry: () => unawaited(service.refresh()),
       );
     }
 
     return RefreshIndicator(
-      color: _accent,
-      backgroundColor: _panel,
-      onRefresh: () => service.refresh(),
+      color: F1.accent,
+      backgroundColor: F1.panel,
+      onRefresh: () async {
+        await service.refresh();
+      },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(10, 10, 10, 28),
         children: [
@@ -167,18 +163,18 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isLive
-              ? [_accent.withValues(alpha: 0.22), _panel]
+              ? [F1.accent.withValues(alpha: 0.22), F1.panel]
               : (isWaiting
-                  ? [const Color(0xFFFFB300).withValues(alpha: 0.12), _panel]
-                  : [_panelAlt, _panel]),
+                  ? [const Color(0xFFFFB300).withValues(alpha: 0.12), F1.panel]
+                  : [F1.panelAlt, F1.panel]),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isLive
-              ? _accent.withValues(alpha: 0.6)
-              : (isWaiting ? const Color(0xFFFFB300).withValues(alpha: 0.4) : _border),
+              ? F1.accent.withValues(alpha: 0.6)
+              : (isWaiting ? const Color(0xFFFFB300).withValues(alpha: 0.4) : F1.border),
         ),
       ),
       child: Column(
@@ -250,7 +246,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     final isLive = status == 'LIVE';
     final isWaiting = status == 'WAITING';
     final color = isLive
-        ? _accent
+        ? F1.accent
         : (isWaiting ? const Color(0xFFFFB300) : Colors.white24);
     final label = isLive
         ? 'LIVE'
@@ -299,16 +295,16 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: (isRace ? _gold : Colors.white).withValues(alpha: 0.12),
+        color: (isRace ? F1.gold : Colors.white).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: (isRace ? _gold : Colors.white24).withValues(alpha: 0.5),
+          color: (isRace ? F1.gold : Colors.white24).withValues(alpha: 0.5),
         ),
       ),
       child: Text(
         isRace ? 'ГОНКА' : 'ЗАЕЗД',
         style: TextStyle(
-          color: isRace ? _gold : Colors.white70,
+          color: isRace ? F1.gold : Colors.white70,
           fontSize: 9,
           fontWeight: FontWeight.w800,
           letterSpacing: 1,
@@ -350,7 +346,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: _border,
+      color: F1.border,
     );
   }
 
@@ -359,10 +355,10 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _panelAlt,
+        color: F1.panelAlt,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isWaiting ? const Color(0xFFFFB300).withValues(alpha: 0.3) : _border,
+          color: isWaiting ? const Color(0xFFFFB300).withValues(alpha: 0.3) : F1.border,
         ),
       ),
       child: Row(
@@ -384,18 +380,16 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
           if (!isWaiting && heat.heatId.isNotEmpty)
             TextButton(
               onPressed: () async {
-                widget.liveService.stop();
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => HeatScreen(heatId: heat.heatId, isRace: heat.looksLikeRace),
                   ),
                 );
-                widget.liveService.start();
               },
               child: const Text(
                 'К заезду',
-                style: TextStyle(color: _accent, fontSize: 12),
+                style: TextStyle(color: F1.accent, fontSize: 12),
               ),
             ),
         ],
@@ -469,134 +463,136 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     Color lapColor = Colors.white;
     if (lastLap != null && previousLap != null) {
       lapColor = lastLap < previousLap
-          ? _teal
+          ? F1.teal
           : (lastLap > previousLap ? const Color(0xFFFF8A65) : Colors.white);
     }
     if (lastLap != null && bestLastLap != null && lastLap == bestLastLap) {
-      lapColor = _purple;
+      lapColor = F1.purple;
     }
 
     return GestureDetector(
       onTap: () => _showDriverLaps(driver),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.fromLTRB(8, 9, 10, 9),
-        decoration: BoxDecoration(
-          color: _panel,
-          borderRadius: BorderRadius.circular(8),
-          border: Border(
-            left: BorderSide(color: posColor, width: 3),
-            top: const BorderSide(color: _border),
-            right: const BorderSide(color: _border),
-            bottom: const BorderSide(color: _border),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.fromLTRB(8, 9, 10, 9),
+          decoration: BoxDecoration(
+            color: F1.panel,
+            border: Border(
+              left: BorderSide(color: posColor, width: 3),
+              top: const BorderSide(color: F1.border),
+              right: const BorderSide(color: F1.border),
+              bottom: const BorderSide(color: F1.border),
+            ),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 30,
-              child: Text(
-                '$position',
-                style: TextStyle(
-                  color: posColor == const Color(0xFF3A3A3A) ? Colors.white70 : posColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 30,
+                child: Text(
+                  '$position',
+                  style: TextStyle(
+                    color: posColor == const Color(0xFF3A3A3A) ? Colors.white70 : posColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          driver.driverName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            driver.driverName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (isSessionBest)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: _purple.withValues(alpha: 0.22),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: const Text(
-                            'ЛУЧШИЙ',
-                            style: TextStyle(
-                              color: _purple,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
+                        if (isSessionBest)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: F1.purple.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              'ЛУЧШИЙ',
+                              style: TextStyle(
+                                color: F1.purple,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (driver.stint?.kart != null)
-                        _miniChip('карт ${driver.stint!.kart}'),
-                      if (driver.stint?.number != null) ...[
-                        const SizedBox(width: 5),
-                        _miniChip('стинт ${driver.stint!.number}'),
                       ],
-                      if (driver.number != null) ...[
-                        const SizedBox(width: 5),
-                        _miniChip('#${driver.number}'),
-                      ],
-                      const Spacer(),
-                      Text(
-                        'луч ${F1.formatMillis(driver.bestLapTime)}',
-                        style: TextStyle(
-                          color: isSessionBest ? _purple : Colors.white38,
-                          fontSize: 10.5,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (driver.stint?.kart != null)
+                          _miniChip('карт ${driver.stint!.kart}'),
+                        if (driver.stint?.number != null) ...[
+                          const SizedBox(width: 5),
+                          _miniChip('стинт ${driver.stint!.number}'),
+                        ],
+                        if (driver.number != null) ...[
+                          const SizedBox(width: 5),
+                          _miniChip('#${driver.number}'),
+                        ],
+                        const Spacer(),
+                        Text(
+                          'луч ${F1.formatMillis(driver.bestLapTime)}',
+                          style: TextStyle(
+                            color: isSessionBest ? F1.purple : Colors.white38,
+                            fontSize: 10.5,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 66,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      F1.formatMillis(lastLap),
+                      style: TextStyle(
+                        color: lapColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 66,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    F1.formatMillis(lastLap),
-                    style: TextStyle(
-                      color: lapColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _gapLabel(driver, position, lapsBehind),
-                    style: TextStyle(
-                      color: position == 1 ? _gold : Colors.white38,
-                      fontSize: 10.5,
-                      fontWeight: position == 1 ? FontWeight.w700 : FontWeight.w500,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(height: 2),
+                    Text(
+                      _gapLabel(driver, position, lapsBehind),
+                      style: TextStyle(
+                        color: position == 1 ? F1.gold : Colors.white38,
+                        fontSize: 10.5,
+                        fontWeight: position == 1 ? FontWeight.w700 : FontWeight.w500,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -632,9 +628,9 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       decoration: BoxDecoration(
-        color: _panelAlt,
+        color: F1.panelAlt,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
+        border: Border.all(color: F1.border),
       ),
       child: Row(
         children: [
@@ -653,9 +649,9 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
                   .map((kart) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _accent.withValues(alpha: 0.15),
+                          color: F1.accent.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: _accent.withValues(alpha: 0.4)),
+                          border: Border.all(color: F1.accent.withValues(alpha: 0.4)),
                         ),
                         child: Text(
                           '$kart',
@@ -680,12 +676,12 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.liveService.error != null)
+          if (_service.error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 'Нет связи с бэкендом, показаны последние данные.',
-                style: TextStyle(color: _accent.withValues(alpha: 0.8), fontSize: 10.5),
+                style: TextStyle(color: F1.accent.withValues(alpha: 0.8), fontSize: 10.5),
               ),
             ),
           Text(
@@ -705,9 +701,9 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     final laps = [...driver.laps]
       ..sort((a, b) => (b.number ?? 0).compareTo(a.number ?? 0));
 
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
-      backgroundColor: _panel,
+      backgroundColor: F1.panel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
@@ -746,12 +742,12 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
                       if (driver.bestLapTime != null)
                         Text(
                           'луч ${F1.formatMillis(driver.bestLapTime)}',
-                          style: const TextStyle(color: _purple, fontSize: 12),
+                          style: const TextStyle(color: F1.purple, fontSize: 12),
                         ),
                     ],
                   ),
                 ),
-                const Divider(color: _border, height: 1),
+                const Divider(color: F1.border, height: 1),
                 Expanded(
                   child: laps.isEmpty
                       ? const Center(
@@ -763,7 +759,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           itemCount: laps.length,
                           separatorBuilder: (_, __) =>
-                              const Divider(color: _border, height: 1),
+                              const Divider(color: F1.border, height: 1),
                           itemBuilder: (context, index) {
                             final lap = laps[index];
                             final isBest = lap.time != null && lap.time == driver.bestLapTime;
@@ -771,7 +767,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
                               dense: true,
                               leading: CircleAvatar(
                                 radius: 14,
-                                backgroundColor: _panelAlt,
+                                backgroundColor: F1.panelAlt,
                                 child: Text(
                                   '${lap.number ?? '?'}',
                                   style: const TextStyle(
@@ -794,7 +790,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
                                   Text(
                                     F1.formatMillis(lap.time),
                                     style: TextStyle(
-                                      color: isBest ? _purple : Colors.white,
+                                      color: isBest ? F1.purple : Colors.white,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       fontFeatures: const [FontFeature.tabularFigures()],
@@ -817,7 +813,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
           },
         );
       },
-    );
+    ));
   }
 
   // ------------------------------------------------------------------
@@ -889,7 +885,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
             const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
+                backgroundColor: F1.accent,
                 foregroundColor: Colors.white,
               ),
               onPressed: onRetry,

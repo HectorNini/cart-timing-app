@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/heat_list.dart';
-import '../services/api_service.dart';
 import '../services/live_service.dart';
+import '../services/live_service_scope.dart';
 import '../theme/f1_theme.dart';
 import '../widgets/live_banner.dart';
 import 'heat_screen.dart';
@@ -13,33 +15,29 @@ class HeatListScreen extends StatefulWidget {
   State<HeatListScreen> createState() => _HeatListScreenState();
 }
 
-class _HeatListScreenState extends State<HeatListScreen>
-    with WidgetsBindingObserver {
-  final ApiService _apiService = ApiService();
-  final LiveService _liveService = LiveService();
+class _HeatListScreenState extends State<HeatListScreen> {
+  late final LiveService _liveService;
+  bool _initialized = false;
   HeatList? _heatList;
   bool _isLoading = true;
   String? _errorMessage;
   String _filter = 'ALL'; // ALL | HEAT | RACE
   /// id заезда, который идёт прямо сейчас; его скрываем из общего списка.
   String? _liveHeatId;
-  /// Live-опрос нужен на списке и на live-экране, но не на экране заезда.
-  bool _liveWanted = true;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    _liveService = LiveServiceScope.of(context);
     _liveService.addListener(_onLiveChanged);
-    _liveService.start();
-    _fetchHeatList();
+    unawaited(_fetchHeatList());
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _liveService.removeListener(_onLiveChanged);
-    _liveService.dispose();
     super.dispose();
   }
 
@@ -58,7 +56,7 @@ class _HeatListScreenState extends State<HeatListScreen>
 
     // Заезд закончился — подтягиваем список, чтобы он появился в нём.
     if (wasLive && liveId == null) {
-      _fetchHeatList();
+      unawaited(_fetchHeatList());
     }
   }
 
@@ -66,27 +64,6 @@ class _HeatListScreenState extends State<HeatListScreen>
     final heats = _heatList?.heats ?? const <HeatItem>[];
     if (_liveHeatId == null) return heats;
     return heats.where((heat) => heat.id != _liveHeatId).toList();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // В фоне не тратим батарею и трафик на опрос live-тайминга.
-    if (state == AppLifecycleState.resumed) {
-      if (_liveWanted) _liveService.start();
-      // Фон мог синхронизировать заезды, пока приложение было свёрнуто.
-      _fetchHeatList(silent: true);
-    } else if (state == AppLifecycleState.paused) {
-      _liveService.stop();
-    }
-  }
-
-  void _setLiveWanted(bool value) {
-    _liveWanted = value;
-    if (value) {
-      _liveService.start();
-    } else {
-      _liveService.stop();
-    }
   }
 
   Future<void> _fetchHeatList({bool silent = false}) async {
@@ -98,7 +75,7 @@ class _HeatListScreenState extends State<HeatListScreen>
     }
 
     try {
-      final data = await _apiService.getHeatList();
+      final data = await _liveService.apiService.getHeatList();
       if (!mounted) return;
       setState(() {
         _heatList = data;
@@ -123,9 +100,9 @@ class _HeatListScreenState extends State<HeatListScreen>
       child: Scaffold(
         backgroundColor: F1.bg,
         appBar: AppBar(
-          title: const Text(
-            'NARVSKAYA',
-            style: TextStyle(
+          title: Text(
+            _heatList?.trackName ?? 'TIMING',
+            style: const TextStyle(
               fontWeight: FontWeight.w800,
               letterSpacing: 2,
               fontSize: 16,
@@ -150,7 +127,7 @@ class _HeatListScreenState extends State<HeatListScreen>
   Widget _buildBody() {
     return Column(
       children: [
-        LiveBanner(liveService: _liveService),
+        const LiveBanner(),
         Expanded(child: _buildContent()),
       ],
     );
@@ -324,8 +301,6 @@ class _HeatListScreenState extends State<HeatListScreen>
     final isRace = heat.isRace;
     return GestureDetector(
       onTap: () async {
-        // Экран заезда не показывает live-блок — лишний опрос не нужен.
-        _setLiveWanted(false);
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -334,10 +309,9 @@ class _HeatListScreenState extends State<HeatListScreen>
           ),
         );
         if (!mounted) return;
-        _setLiveWanted(true);
         // Заезд при открытии мог подтянуться с сайта и попасть в БД.
         // Обновляем список, чтобы снять с него отметку «НЕ СИНХР.».
-        _fetchHeatList(silent: true);
+        unawaited(_fetchHeatList(silent: true));
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),

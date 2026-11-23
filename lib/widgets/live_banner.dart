@@ -3,16 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/live_data.dart';
-import '../services/live_service.dart';
+import '../services/live_service_scope.dart';
 import '../theme/f1_theme.dart';
 import '../screens/live_screen.dart';
 
 /// Баннер «сейчас идёт гонка» на экране списка.
 /// Скрыт, когда live-сессии нет.
 class LiveBanner extends StatefulWidget {
-  final LiveService liveService;
-
-  const LiveBanner({super.key, required this.liveService});
+  const LiveBanner({super.key});
 
   @override
   State<LiveBanner> createState() => _LiveBannerState();
@@ -54,10 +52,11 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final liveService = LiveServiceScope.of(context);
     return ListenableBuilder(
-      listenable: widget.liveService,
+      listenable: liveService,
       builder: (context, _) {
-        final snapshot = widget.liveService.snapshot;
+        final snapshot = liveService.snapshot;
         final heat = snapshot?.heat;
         if (snapshot == null || heat == null || !snapshot.live) {
           _syncActivity(false);
@@ -77,12 +76,12 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () {
-            Navigator.push(
+            unawaited(Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => LiveScreen(liveService: widget.liveService),
+                builder: (_) => const LiveScreen(),
               ),
-            );
+            ));
           },
           child: Ink(
             decoration: BoxDecoration(

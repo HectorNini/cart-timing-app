@@ -167,11 +167,17 @@ class LapRow {
 }
 
 class HeatData {
+  /// IN_PROGRESS / FINISHED / UNKNOWN — приходит от бэкенда.
+  static const String statusInProgress = 'IN_PROGRESS';
+  static const String statusFinished = 'FINISHED';
+  static const String statusUnknown = 'UNKNOWN';
+
   final String heatName;
   final List<DriverInfo> drivers;
   final List<LapRow> laps;
   final String? raceDate;
   final String? raceTime;
+  final String status;
 
   HeatData({
     required this.heatName,
@@ -179,6 +185,7 @@ class HeatData {
     required this.laps,
     this.raceDate,
     this.raceTime,
+    this.status = statusUnknown,
   });
 
   factory HeatData.fromJson(Map<String, dynamic> json) {
@@ -205,6 +212,7 @@ class HeatData {
           : <LapRow>[],
       raceDate: json['raceDate']?.toString(),
       raceTime: json['raceTime']?.toString(),
+      status: asString(json['status']) ?? statusUnknown,
     );
   }
 
