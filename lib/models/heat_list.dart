@@ -1,3 +1,5 @@
+import 'json_helpers.dart';
+
 class HeatItem {
   final String id;
   final String name;
@@ -22,13 +24,13 @@ class HeatItem {
 
   factory HeatItem.fromJson(Map<String, dynamic> json) {
     return HeatItem(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      date: json['date'] as String? ?? '',
-      time: json['time'] as String? ?? '',
-      topResult: json['topResult'] as String? ?? '',
-      type: json['type'] as String? ?? 'HEAT',
-      synced: json['synced'] as bool? ?? true,
+      id: asString(json['id']) ?? '',
+      name: asString(json['name']) ?? '',
+      date: asString(json['date']) ?? '',
+      time: asString(json['time']) ?? '',
+      topResult: asString(json['topResult']) ?? '',
+      type: asString(json['type']) ?? 'HEAT',
+      synced: asBool(json['synced']) ?? true,
     );
   }
 }
@@ -44,7 +46,7 @@ class HeatList {
 
   factory HeatList.fromJson(Map<String, dynamic> json) {
     return HeatList(
-      trackName: json['trackName'] as String,
+      trackName: asString(json['trackName']) ?? '',
       heats: (json['heats'] as List)
           .map((item) => HeatItem.fromJson(item as Map<String, dynamic>))
           .toList(),

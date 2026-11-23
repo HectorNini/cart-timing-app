@@ -28,10 +28,7 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
+    );
   }
 
   @override
@@ -41,6 +38,20 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  /// Пульсация и тикер включаются только когда баннер реально показан.
+  void _syncActivity(bool isLive) {
+    if (isLive) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      if (_pulse.isAnimating) _pulse.stop();
+      _ticker?.cancel();
+      _ticker = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -48,9 +59,11 @@ class _LiveBannerState extends State<LiveBanner> with SingleTickerProviderStateM
       builder: (context, _) {
         final snapshot = widget.liveService.snapshot;
         final heat = snapshot?.heat;
-        if (snapshot == null || !snapshot.live || heat == null) {
+        if (snapshot == null || heat == null || !snapshot.live) {
+          _syncActivity(false);
           return const SizedBox.shrink();
         }
+        _syncActivity(true);
         return _buildBanner(snapshot, heat);
       },
     );

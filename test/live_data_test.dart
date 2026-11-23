@@ -1,3 +1,4 @@
+import 'package:cart_timing_app/models/json_helpers.dart';
 import 'package:cart_timing_app/models/live_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,6 +60,52 @@ void main() {
             now: DateTime.fromMillisecondsSinceEpoch(2010000)),
         525891,
       );
+    });
+  });
+
+  group('json helpers', () {
+    test('asInt accepts numbers and numeric strings', () {
+      expect(asInt(33), 33);
+      expect(asInt('33'), 33);
+      expect(asInt(' 42 '), 42);
+      expect(asInt('n/a'), isNull);
+      expect(asInt(null), isNull);
+    });
+
+    test('asBool accepts booleans and common string forms', () {
+      expect(asBool(true), isTrue);
+      expect(asBool('true'), isTrue);
+      expect(asBool('1'), isTrue);
+      expect(asBool('false'), isFalse);
+      expect(asBool('0'), isFalse);
+      expect(asBool('maybe'), isNull);
+    });
+
+    test('LiveSnapshot.fromJson survives string numbers', () {
+      final snapshot = LiveSnapshot.fromJson({
+        'live': 'true',
+        'status': 'LIVE',
+        'ageMs': '2500',
+        'messages': '12',
+        'heat': {
+          'heatId': 133304,
+          'elapsed': '91000',
+          'mode': '0',
+          'pitlaneKarts': ['9', 21, 'bad'],
+          'drivers': [
+            {'driverId': 7494, 'position': '2', 'totalLaps': '7'},
+          ],
+        },
+      });
+
+      expect(snapshot.live, isTrue);
+      expect(snapshot.ageMs, 2500);
+      expect(snapshot.messages, 12);
+      expect(snapshot.heat!.heatId, '133304');
+      expect(snapshot.heat!.elapsed, 91000);
+      expect(snapshot.heat!.pitlaneKarts, [9, 21]);
+      expect(snapshot.heat!.drivers.single.position, 2);
+      expect(snapshot.heat!.drivers.single.totalLaps, 7);
     });
   });
 }

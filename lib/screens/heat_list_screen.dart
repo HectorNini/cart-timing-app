@@ -23,6 +23,8 @@ class _HeatListScreenState extends State<HeatListScreen>
   String _filter = 'ALL'; // ALL | HEAT | RACE
   /// id заезда, который идёт прямо сейчас; его скрываем из общего списка.
   String? _liveHeatId;
+  /// Live-опрос нужен на списке и на live-экране, но не на экране заезда.
+  bool _liveWanted = true;
 
   @override
   void initState() {
@@ -70,10 +72,19 @@ class _HeatListScreenState extends State<HeatListScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // В фоне не тратим батарею и трафик на опрос live-тайминга.
     if (state == AppLifecycleState.resumed) {
-      _liveService.start();
+      if (_liveWanted) _liveService.start();
       // Фон мог синхронизировать заезды, пока приложение было свёрнуто.
       _fetchHeatList(silent: true);
     } else if (state == AppLifecycleState.paused) {
+      _liveService.stop();
+    }
+  }
+
+  void _setLiveWanted(bool value) {
+    _liveWanted = value;
+    if (value) {
+      _liveService.start();
+    } else {
       _liveService.stop();
     }
   }
@@ -313,6 +324,8 @@ class _HeatListScreenState extends State<HeatListScreen>
     final isRace = heat.isRace;
     return GestureDetector(
       onTap: () async {
+        // Экран заезда не показывает live-блок — лишний опрос не нужен.
+        _setLiveWanted(false);
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -321,6 +334,7 @@ class _HeatListScreenState extends State<HeatListScreen>
           ),
         );
         if (!mounted) return;
+        _setLiveWanted(true);
         // Заезд при открытии мог подтянуться с сайта и попасть в БД.
         // Обновляем список, чтобы снять с него отметку «НЕ СИНХР.».
         _fetchHeatList(silent: true);

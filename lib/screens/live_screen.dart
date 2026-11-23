@@ -36,7 +36,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
 
     // Перерисовываем секундомер и «обновлено N с назад» каждую секунду.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -52,6 +52,20 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     _ticker?.cancel();
     _pulse.dispose();
     super.dispose();
+  }
+
+  /// Анимация и посекундная перерисовка нужны только во время гонки.
+  void _syncActivity(bool isLive) {
+    if (isLive) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      if (_pulse.isAnimating) _pulse.stop();
+      _ticker?.cancel();
+      _ticker = null;
+    }
   }
 
   @override
@@ -91,6 +105,7 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
     final service = widget.liveService;
     final snapshot = service.snapshot;
     final heat = snapshot?.heat;
+    _syncActivity(snapshot?.live == true && heat?.drivers.isNotEmpty == true);
 
     if (snapshot == null && service.isLoading) {
       return const Center(child: CircularProgressIndicator(color: _accent));
@@ -368,13 +383,15 @@ class _LiveScreenState extends State<LiveScreen> with SingleTickerProviderStateM
           ),
           if (!isWaiting && heat.heatId.isNotEmpty)
             TextButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                widget.liveService.stop();
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => HeatScreen(heatId: heat.heatId, isRace: heat.looksLikeRace),
                   ),
                 );
+                widget.liveService.start();
               },
               child: const Text(
                 'К заезду',

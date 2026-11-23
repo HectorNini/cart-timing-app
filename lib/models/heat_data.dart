@@ -1,3 +1,5 @@
+import 'json_helpers.dart';
+
 class StintInfo {
   final int? number;
   final int? kartNumber;
@@ -21,14 +23,14 @@ class StintInfo {
 
   factory StintInfo.fromJson(Map<String, dynamic> json) {
     return StintInfo(
-      number: json['number'] as int?,
-      kartNumber: json['kartNumber'] as int?,
-      lapFrom: json['lapFrom'] as int?,
-      lapTo: json['lapTo'] as int?,
-      lapsCount: json['lapsCount'] as int?,
-      bestLapMillis: json['bestLapMillis'] as int?,
-      avgLapMillis: json['avgLapMillis'] as int?,
-      devMillis: json['devMillis'] as int?,
+      number: asInt(json['number']),
+      kartNumber: asInt(json['kartNumber']),
+      lapFrom: asInt(json['lapFrom']),
+      lapTo: asInt(json['lapTo']),
+      lapsCount: asInt(json['lapsCount']),
+      bestLapMillis: asInt(json['bestLapMillis']),
+      avgLapMillis: asInt(json['avgLapMillis']),
+      devMillis: asInt(json['devMillis']),
     );
   }
 }
@@ -64,17 +66,17 @@ class DriverInfo {
 
   factory DriverInfo.fromJson(Map<String, dynamic> json) {
     return DriverInfo(
-      siteId: json['siteId'] as String?,
-      name: json['name'] as String?,
-      kartNumber: json['kartNumber'] as int?,
-      startPosition: json['startPosition'] as int?,
-      bestTime: json['bestTime'] as String?,
-      avgTime: json['avgTime'] as String?,
-      devTime: json['devTime'] as String?,
-      position: json['position'] as String?,
-      bestLapMillis: json['bestLapMillis'] as int?,
-      totalLaps: json['totalLaps'] as int?,
-      columnIndex: json['columnIndex'] as int?,
+      siteId: asString(json['siteId']),
+      name: asString(json['name']),
+      kartNumber: asInt(json['kartNumber']),
+      startPosition: asInt(json['startPosition']),
+      bestTime: asString(json['bestTime']),
+      avgTime: asString(json['avgTime']),
+      devTime: asString(json['devTime']),
+      position: asString(json['position']),
+      bestLapMillis: asInt(json['bestLapMillis']),
+      totalLaps: asInt(json['totalLaps']),
+      columnIndex: asInt(json['columnIndex']),
       stints: json['stints'] != null
           ? (json['stints'] as List)
               .map((s) => StintInfo.fromJson(s as Map<String, dynamic>))
@@ -120,18 +122,18 @@ class LapDetail {
 
   factory LapDetail.fromJson(Map<String, dynamic> json) {
     return LapDetail(
-      lapTime: json['lapTime'] as String?,
-      lapTimeMillis: json['lapTimeMillis'] as int?,
-      position: json['position'] as String?,
-      racePosition: json['racePosition'] as String?,
-      raceLapNumber: json['raceLapNumber'] as int?,
-      stintIndex: json['stintIndex'] as int?,
-      kartNumber: json['kartNumber'] as int?,
-      columnIndex: json['columnIndex'] as int?,
-      gapToLeader: json['gapToLeader'] as String?,
-      gapToPrevious: json['gapToPrevious'] as String?,
-      bestLapOverall: json['bestLapOverall'] as bool?,
-      bestLapStint: json['bestLapStint'] as bool?,
+      lapTime: asString(json['lapTime']),
+      lapTimeMillis: asInt(json['lapTimeMillis']),
+      position: asString(json['position']),
+      racePosition: asString(json['racePosition']),
+      raceLapNumber: asInt(json['raceLapNumber']),
+      stintIndex: asInt(json['stintIndex']),
+      kartNumber: asInt(json['kartNumber']),
+      columnIndex: asInt(json['columnIndex']),
+      gapToLeader: asString(json['gapToLeader']),
+      gapToPrevious: asString(json['gapToPrevious']),
+      bestLapOverall: asBool(json['bestLapOverall']),
+      bestLapStint: asBool(json['bestLapStint']),
     );
   }
 }
@@ -194,7 +196,7 @@ class HeatData {
       }
     }
     return HeatData(
-      heatName: json['heatName'] as String? ?? '',
+      heatName: asString(json['heatName']) ?? '',
       drivers: driversList,
       laps: json['laps'] != null
           ? (json['laps'] as List)

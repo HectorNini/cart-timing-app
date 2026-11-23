@@ -1,3 +1,5 @@
+import 'json_helpers.dart';
+
 /// Модели live-тайминга (ответ `/api/live/current`).
 /// Все времена — в миллисекундах.
 class LiveSnapshot {
@@ -28,14 +30,14 @@ class LiveSnapshot {
   factory LiveSnapshot.fromJson(Map<String, dynamic> json) {
     final heatJson = json['heat'];
     return LiveSnapshot(
-      live: json['live'] as bool? ?? false,
-      status: json['status'] as String? ?? 'IDLE',
+      live: asBool(json['live']) ?? false,
+      status: asString(json['status']) ?? 'IDLE',
       heat: heatJson is Map<String, dynamic> ? LiveHeat.fromJson(heatJson) : null,
-      lastUpdateAt: json['lastUpdateAt'] as int?,
-      ageMs: json['ageMs'] as int?,
-      startedAt: json['startedAt'] as int?,
-      messages: json['messages'] as int? ?? 0,
-      staleTimeoutMs: json['staleTimeoutMs'] as int? ?? 180000,
+      lastUpdateAt: asInt(json['lastUpdateAt']),
+      ageMs: asInt(json['ageMs']),
+      startedAt: asInt(json['startedAt']),
+      messages: asInt(json['messages']) ?? 0,
+      staleTimeoutMs: asInt(json['staleTimeoutMs']) ?? 180000,
     );
   }
 
@@ -86,12 +88,16 @@ class LiveHeat {
   factory LiveHeat.fromJson(Map<String, dynamic> json) {
     return LiveHeat(
       heatId: json['heatId']?.toString() ?? '',
-      heatName: json['heatName'] as String? ?? '',
-      trackSlug: json['trackSlug'] as String? ?? '',
-      elapsed: json['elapsed'] as int? ?? 0,
-      mode: json['mode'] as int? ?? 0,
-      pitlaneKarts: (json['pitlaneKarts'] as List?)?.map((e) => e as int).toList() ?? const [],
-      pitstopTimeThreshold: json['pitstopTimeThreshold'] as int?,
+      heatName: asString(json['heatName']) ?? '',
+      trackSlug: asString(json['trackSlug']) ?? '',
+      elapsed: asInt(json['elapsed']) ?? 0,
+      mode: asInt(json['mode']) ?? 0,
+      pitlaneKarts: (json['pitlaneKarts'] as List?)
+              ?.map((e) => asInt(e))
+              .whereType<int>()
+              .toList() ??
+          const [],
+      pitstopTimeThreshold: asInt(json['pitstopTimeThreshold']),
       drivers: (json['drivers'] as List?)
               ?.map((d) => LiveDriver.fromJson(d as Map<String, dynamic>))
               .toList() ??
@@ -178,10 +184,10 @@ class LiveDriver {
   factory LiveDriver.fromJson(Map<String, dynamic> json) {
     return LiveDriver(
       driverId: json['driverId']?.toString() ?? '',
-      driverName: json['driverName'] as String? ?? '—',
-      number: json['number'] as int?,
-      position: json['position'] as int? ?? 0,
-      bestTime: json['bestTime'] as int?,
+      driverName: asString(json['driverName']) ?? '—',
+      number: asInt(json['number']),
+      position: asInt(json['position']) ?? 0,
+      bestTime: asInt(json['bestTime']),
       stint: json['stint'] is Map<String, dynamic>
           ? LiveStint.fromJson(json['stint'] as Map<String, dynamic>)
           : null,
@@ -189,13 +195,13 @@ class LiveDriver {
               ?.map((l) => LiveLap.fromJson(l as Map<String, dynamic>))
               .toList() ??
           const [],
-      totalLaps: json['totalLaps'] as int? ??
+      totalLaps: asInt(json['totalLaps']) ??
           (json['laps'] as List?)?.length ??
           0,
-      lastLapNumber: json['lastLapNumber'] as int?,
-      bestLapTime: json['bestLapTime'] as int?,
-      lastLapTime: json['lastLapTime'] as int?,
-      lastGapTime: json['lastGapTime'] as int?,
+      lastLapNumber: asInt(json['lastLapNumber']),
+      bestLapTime: asInt(json['bestLapTime']),
+      lastLapTime: asInt(json['lastLapTime']),
+      lastGapTime: asInt(json['lastGapTime']),
     );
   }
 
@@ -224,11 +230,11 @@ class LiveStint {
 
   factory LiveStint.fromJson(Map<String, dynamic> json) {
     return LiveStint(
-      kart: json['kart'] as int?,
-      number: json['number'] as int?,
-      bestTime: json['bestTime'] as int?,
-      length: json['length'] as int?,
-      avgTime: json['avgTime'] as int?,
+      kart: asInt(json['kart']),
+      number: asInt(json['number']),
+      bestTime: asInt(json['bestTime']),
+      length: asInt(json['length']),
+      avgTime: asInt(json['avgTime']),
     );
   }
 }
@@ -250,11 +256,11 @@ class LiveLap {
 
   factory LiveLap.fromJson(Map<String, dynamic> json) {
     return LiveLap(
-      stintNum: json['stintNum'] as int?,
-      number: json['number'] as int?,
-      time: json['time'] as int?,
-      gapTime: json['gapTime'] as int?,
-      kartNum: json['kartNum'] as int?,
+      stintNum: asInt(json['stintNum']),
+      number: asInt(json['number']),
+      time: asInt(json['time']),
+      gapTime: asInt(json['gapTime']),
+      kartNum: asInt(json['kartNum']),
     );
   }
 }

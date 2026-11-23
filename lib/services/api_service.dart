@@ -1,22 +1,29 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cart_timing_app/models/heat_list.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import '../models/heat_data.dart';
 import '../models/live_data.dart';
 
 class ApiService {
-  // Базовый URL: для эмулятора Android используем 10.0.2.2, для реального телефона
-  // можно переопределить через --dart-define=API_BASE_URL=http://192.168.x.x:8080/api
+  // Явный адрес всегда имеет приоритет:
+  //   --dart-define=API_BASE_URL=http://192.168.x.x:8080/api
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) return override;
 
-    final host = Uri.base.host;
-    if (host == 'localhost' || host == '127.0.0.1') {
-      return 'http://10.0.2.2:8080/api'; // Android emulator
+    if (kIsWeb) {
+      final uri = Uri.base;
+      // Локальный web-сервер Frontend и backend подняты на разных портах.
+      if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
+        return '${uri.scheme}://${uri.host}:8080/api';
+      }
+      // На хостинге backend доступен по тому же домену, что и фронтенд.
+      return '${uri.origin}/api';
     }
-    // Для веб и прочих можно поменять под нужный IP
+
+    // Android-эмулятор видит хост через 10.0.2.2.
     return 'http://10.0.2.2:8080/api';
   }
 
